@@ -301,7 +301,7 @@ async def query_raffles_by_user(request, user):
         "day_range": day_range,
         "raffle_data": raffle_data,
     }
-    return render_to_response("web/templates/website_query_raffles_by_user.html", context=context)
+    return render_to_response("web/templates/raffles_by_user.html", context=context)
 
 
 async def broadcast(request):
