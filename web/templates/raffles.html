@@ -81,7 +81,7 @@
         $("#submit-query").click(function(){
             let uid = $("input[name=uid]").val();
             let dayRange = parseInt($("input[name=day_range]").val());
-            window.open("/lt/query_raffles_by_user?day_range=" + dayRange + "&uid=" + uid);
+            window.open("/bili/raffles?day_range=" + dayRange + "&user=" + uid);
         });
     </script>
 </body>
