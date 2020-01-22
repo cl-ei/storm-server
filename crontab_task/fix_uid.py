@@ -24,7 +24,8 @@ async def fix_missed_uid(execute):
     for i, key in enumerate(keys):
         name = key[len(block_key_prefix):]
         if result[i]:
-            blocked.append(name)
+            # blocked.append(name)
+            pass
         else:
             non_blocked[name] = non_uid_users[name]
     logging.info(f"Failed users: {len(blocked)}, {blocked[:6]}...")
