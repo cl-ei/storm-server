@@ -102,7 +102,7 @@ async def query_gifts(request):
         "proc_time": f"{(time.time() - start_time):.3f}",
         "db_query_time": f"{db_query_time:.3f}",
     }
-    return render_to_response("website/templates/website_query_gifts.html", context=context)
+    return render_to_response("web/templates/website_query_gifts.html", context=context)
 
 
 async def query_raffles(request):
@@ -212,7 +212,7 @@ async def query_raffles(request):
         "raffle_count": len(raffle_data),
         "CDN_URL": CDN_URL,
     }
-    return render_to_response("website/templates/website_query_raffles.html", context=context)
+    return render_to_response("web/templates/website_query_raffles.html", context=context)
 
 
 async def query_raffles_by_user(request):
@@ -294,9 +294,9 @@ async def query_raffles_by_user(request):
         "day_range": day_range,
         "raffle_data": raffle_data,
     }
-    return render_to_response("website/templates/website_query_raffles_by_user.html", context=context)
+    return render_to_response("web/templates/website_query_raffles_by_user.html", context=context)
 
 
 async def broadcast(request):
     context = {"CDN_URL": CDN_URL}
-    return render_to_response("website/templates/raffle_broadcast.html", context=context)
+    return render_to_response("web/templates/raffle_broadcast.html", context=context)
