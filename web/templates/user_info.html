@@ -20,11 +20,16 @@
 </head>
 <body>
     <h2>{{ user_name }}</h2>
+    <p>最后更新时间：{{ last_update }}</p>
     <table>
-    <tr>
-        <th>用户名</th> <td>{{ user_name }}</td>
-        <th>用户id</th> <td>{{ uid }}</td>
-    </tr>
+    <tr><th>用户名</th> <td>{{ user_name }}</td></tr>
+    <tr><th>用户id</th> <td>{{ uid }}</td></tr>
+
+    <tr><th>粉丝数</th> <td>{{ attention }}</td></tr>
+    <tr><th>直播间标题</th> <td>{{ title }}</td></tr>
+    <tr><th>直播间短号</th> <td>{{ short_room_id }}</td></tr>
+    <tr><th>原始直播间号</th> <td>{{ real_room_id }}</td></tr>
+    <tr><th>注册时间</th> <td>{{ create_at }}</td></tr>
     </table>
 </body>
 </html>
