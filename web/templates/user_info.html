@@ -1,0 +1,30 @@
+<html>
+<head>
+    <meta name="referrer" content="same-origin">
+    <style>
+    table{
+        width: 100%;
+        max-width: 1100px;
+        margin-bottom: 20px;
+        border: 1px solid #7a7a7a;
+        border-collapse: collapse;
+        border-left: none;
+        word-break: normal;
+        line-height: 30px;
+        text-align: center;
+    }
+    tr, th, td{
+        border: 1px solid #7a7a7a;
+    }
+    </style>
+</head>
+<body>
+    <h2>{{ user_name }}</h2>
+    <table>
+    <tr>
+        <th>用户名</th> <td>{{ user_name }}</td>
+        <th>用户id</th> <td>{{ uid }}</td>
+    </tr>
+    </table>
+</body>
+</html>
