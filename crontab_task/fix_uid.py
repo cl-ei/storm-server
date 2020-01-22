@@ -22,8 +22,6 @@ async def fix_missed_uid(execute):
     non_blocked = {}
     blocked = []
     for i, key in enumerate(keys):
-        await redis_cache.delete(key=key)
-        continue
         name = key[len(block_key_prefix):]
         if result[i]:
             blocked.append(name)
