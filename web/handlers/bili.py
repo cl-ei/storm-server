@@ -46,7 +46,8 @@ async def guards(request):
             "from guard where expire_time > %s and gift_name in %s;"
         ), (expire_time, ("总督", "提督", "舰长"))
     )
-    room_id_list = [row[1] for row in guard_records]
+    room_id_list = [row[1] for row in guard_records] or [-1]
+
     room_info = await AsyncMySQL.execute(
         (
             "select name, short_room_id, real_room_id "
