@@ -305,6 +305,45 @@ async def user_info(request):
     if not user_obj:
         return web.Response(text=f"未收录该用户: {user_str}", content_type="text/html")
 
+    opened_guards = await AsyncMySQL.execute(
+        "select g.room_id, g.gift_name, g.created_time "
+        "from guard g "
+        "where g.sender_obj_id = %s and g.created_time >= %s "
+        "order by g.room_id, g.created_time desc;",
+        (user_obj.id, datetime.datetime.now() - datetime.timedelta(days=45))
+    )
+    guards_info = []
+
+    if opened_guards:
+        rooms_info = await AsyncMySQL.execute(
+            "select real_room_id, short_room_id, name from biliuser where real_room_id in %s;",
+            ([r[0] for r in opened_guards],)
+        )
+        room_id_map = {r[0]: r[1] for r in rooms_info if r[0] and r[1]}
+        room_id_to_name = {r[0]: r[2] for r in rooms_info}
+
+        def gen_time_prompt(interval):
+            if interval > 3600 * 24:
+                return f"约{int(interval // (3600 * 24))}天前"
+            elif interval > 3600:
+                return f"约{int(interval // 3600)}小时前"
+            elif interval > 60:
+                return f"约{int(interval // 60)}分钟前"
+            return f"{int(interval)}秒前"
+
+        now = datetime.datetime.now()
+        for g in opened_guards:
+            room_id, gift_name, created_time = g
+            short_room_id = room_id_map.get(room_id, room_id)
+            interval_prompt = gen_time_prompt((now - created_time).total_seconds())
+            guards_info.append({
+                "room_id": short_room_id,
+                "gift_name": gift_name,
+                "count": 1,
+                "interval_prompt": interval_prompt,
+                "master_name": room_id_to_name.get(room_id, "??"),
+            })
+
     context = {
         "last_update": user_obj.user_info_update_time,
         "user_name": user_obj.name,
@@ -314,5 +353,6 @@ async def user_info(request):
         "short_room_id": user_obj.short_room_id,
         "real_room_id": user_obj.real_room_id,
         "create_at": user_obj.create_at,
+        "guards_info": guards_info,
     }
     return render_to_response(template="web/templates/user_info.html", context=context)

@@ -32,5 +32,24 @@
     <tr><th>注册时间</th> <td>{{ create_at }}</td></tr>
     <tr><th>曾用名</th> <td>{{ used_names }}</td></tr>
     </table>
+    <h2>{{ user_name }}在45天内开通的舰长：(共{{ guards_info|length }}个)</h2>
+    <table>
+    <tr>
+        <th>房间号</th>
+        <th>主播</th>
+        <th>礼物名称</th>
+        <th>数量</th>
+        <th>开通时间</th>
+    </tr>
+    {% for g in guards_info %}
+    <tr>
+        <td><a href="bilibili://live/{{ g.room_id }}" target="_blank">{{ g.room_id }}</a></td>
+        <td>{{ g.master_name }}</td>
+        <td>{{ g.gift_name }}</td>
+        <td>{{ g.count }}</td>
+        <td>{{ g.interval_prompt }}</td>
+    </tr>
+    {% endfor %}
+    </table>
 </body>
 </html>
