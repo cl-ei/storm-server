@@ -332,18 +332,28 @@ async def user_info(request):
             return f"{int(interval)}秒前"
 
         now = datetime.datetime.now()
+        temp = {}
         for g in opened_guards:
             room_id, gift_name, created_time = g
             short_room_id = room_id_map.get(room_id, room_id)
             interval_prompt = gen_time_prompt((now - created_time).total_seconds())
-            guards_info.append({
-                "room_id": short_room_id,
-                "gift_name": gift_name,
-                "count": 1,
-                "interval_prompt": interval_prompt,
-                "master_name": room_id_to_name.get(room_id, "??"),
-            })
+            master_name = room_id_to_name.get(room_id, "??")
 
+            key = (short_room_id, gift_name, interval_prompt, master_name)
+            if key in temp:
+                temp[key] += 1
+            else:
+                temp[key] = 1
+
+        for k, count in temp.items():
+            guards_info.append({
+                "room_id": k[0],
+                "gift_name": k[1],
+                "count": count,
+                "interval_prompt": k[2],
+                "master_name": k[3],
+            })
+        guards_info.sort(key=lambda x: (x["interval_prompt"], x["room_id"], x["gift_name"], x["count"]))
     context = {
         "last_update": user_obj.user_info_update_time,
         "user_name": user_obj.name,
