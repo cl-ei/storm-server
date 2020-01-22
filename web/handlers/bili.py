@@ -174,11 +174,14 @@ async def raffles(request):
         user_id, user_name = user_obj_id_map.get(winner_obj_id, ("", winner_name))
         sender_uid, sender_name = user_obj_id_map.get(sender_obj_id, ("", sender_name))
 
+        display_name = gift_name.replace("抽奖", "")
+        if display_name in ("", "-", None):
+            display_name = f"&{gift_type}"
         info = {
             "short_room_id": short_room_id,
             "real_room_id": real_room_id,
             "raffle_id": id,
-            "gift_name": (gift_name.replace("抽奖", "") + "-" + gift_type) or "",
+            "gift_name": display_name,
             "prize_gift_name": prize_gift_name or "",
             "created_time": expire_time,
             "user_id": user_id or "",
