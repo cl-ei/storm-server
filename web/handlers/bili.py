@@ -107,6 +107,10 @@ async def guards(request):
 
 
 async def raffles(request):
+    user = request.query.get("user")
+    if user:
+        return await query_raffles_by_user(request, user)
+
     json_req = request.query.get("json")
     try:
         page_size = int(request.query["page_size"])
@@ -219,8 +223,7 @@ async def raffles(request):
     return render_to_response("web/templates/raffles.html", context=context)
 
 
-async def query_raffles_by_user(request):
-    uid = request.query.get("uid")
+async def query_raffles_by_user(request, user):
     day_range = request.query.get("day_range")
     now = datetime.datetime.now()
     raffle_start_record_time = now.replace(year=2019, month=7, day=2, hour=0, minute=0, second=0, microsecond=0)
@@ -239,11 +242,11 @@ async def query_raffles_by_user(request):
             content_type="text/html"
         )
 
-    if not uid or len(uid) > 50:
+    if not user or len(user) > 50:
         return web.Response(text="请输入正确的用户。", content_type="text/html")
 
     try:
-        uid = int(uid)
+        uid = int(user)
     except (TypeError, ValueError):
         return web.Response(text="请输入uid。", content_type="text/html")
 
