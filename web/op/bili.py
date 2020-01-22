@@ -56,8 +56,13 @@ async def get_send_gifts(user_obj):
             else:
                 gift[key] = 1
 
-        result = []
+        sort_by_count = []
         for room_id, gifts in group_by_room.items():
+            sort_by_count.append((len(gifts), room_id, gifts))
+        sort_by_count.sort(key=lambda x: x[0], reverse=True)
+
+        result = []
+        for _, room_id, gifts in sort_by_count:
             master_name = room_id_to_name.get(room_id, "??")
             room_id = room_id_map.get(room_id, room_id)
 
