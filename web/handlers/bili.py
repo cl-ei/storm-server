@@ -307,6 +307,8 @@ async def user_info(request):
         return web.Response(text=f"未收录该用户: {user_str}", content_type="text/html")
 
     guards_info = await bili.get_send_gifts(user_obj)
+    used_names = await bili.get_used_names(user_obj)
+    used_names = "、".join([n for n in used_names if n != user_obj.name])
     context = {
         "last_update": user_obj.user_info_update_time,
         "user_name": user_obj.name,
@@ -316,6 +318,7 @@ async def user_info(request):
         "short_room_id": user_obj.short_room_id,
         "real_room_id": user_obj.real_room_id,
         "create_at": user_obj.create_at,
+        "used_names": used_names,
         "guards_info": guards_info,
     }
     return render_to_response(template="web/templates/user_info.html", context=context)

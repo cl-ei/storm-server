@@ -90,3 +90,15 @@ async def get_send_gifts(user_obj):
 
     return guards_info
 
+
+async def get_used_names(user_obj):
+    q = await AsyncMySQL.execute(
+        "select distinct sender_name from guard where sender_obj_id = %s", user_obj.id
+    )
+    n = {r[0] for r in q}
+
+    q = await AsyncMySQL.execute(
+        "select distinct sender_name from raffle where sender_obj_id = %s", user_obj.id
+    )
+    n |= {r[0] for r in q}
+    return n
