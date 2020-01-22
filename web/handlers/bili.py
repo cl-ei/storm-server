@@ -300,4 +300,4 @@ async def query_raffles_by_user(request):
 
 async def broadcast(request):
     context = {"CDN_URL": CDN_URL}
-    return render_to_response("web/templates/raffle_broadcast.html", context=context)
+    return render_to_response("web/templates/broadcast.html", context=context)
