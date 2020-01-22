@@ -224,6 +224,7 @@ class Executor:
                 "expire_time": expire_time,
             }
             await RedisGuard.add(raffle_id=raffle_id, value=create_param)
+            await Guard.create(**create_param)
             logging.info(f"\tGuard found: room_id: {room_id} $ {raffle_id} ({gift_name}) <- {sender['uname']}")
 
     async def _handle_tv(self, room_id, gift_list):
