@@ -72,13 +72,6 @@
         </tr>
         {% endfor %}
         </table>
-
-        name = m["medal_name"]
-        level = m["level"]
-        current = m["intimacy"]
-        total = m["next_intimacy"]
-        msg_list.append(f"[{name}] {level}级，{current}/{total}")
-
     {% else %}
     <h2>用户勋章获取失败：{{ medal_info }}</h2>
     {% endif %}
