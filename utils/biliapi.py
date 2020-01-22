@@ -10,7 +10,6 @@ import traceback
 from math import floor
 from random import random
 from utils.dao import redis_cache
-from config.log4 import bili_api_logger as logging
 from config import cloud_function_url
 from config import cloud_login
 
