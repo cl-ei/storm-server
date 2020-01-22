@@ -325,11 +325,6 @@ class ValuableLiveRoom(object):
         if not room_id_list:
             return False
         value = "_".join([str(room_id) for room_id in room_id_list])
-
-        async with XNodeRedis() as redis:
-            r = await redis.set(cls._key, value=value, _un_pickle=True)
-        if not r:
-            return False
         return await redis_cache.set(cls._key, value=value, _un_pickle=True)
 
     @classmethod
