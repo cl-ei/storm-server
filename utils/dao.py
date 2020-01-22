@@ -407,71 +407,8 @@ class MonitorLiveRooms(object):
         return await redis_cache.set(cls._key, live_room_id_set)
 
 
-class LtUserLoginPeriodOfValidity(object):
-    _key = "LT_USER_LOGIN_PERIOD_"
-
-    @classmethod
-    async def update(cls, user_id, timeout=3600*24*40):
-        key = cls._key + str(user_id)
-        return await redis_cache.set(key=key, value="IN_PERIOD", timeout=timeout)
-
-    @classmethod
-    async def in_period(cls, user_id):
-        key = cls._key + str(user_id)
-        r = await redis_cache.get(key=key)
-        return r == "IN_PERIOD"
-
-
-class RaffleToCQPushList(object):
-    _key = "RAFFLE_TO_CQ_"
-
-    @classmethod
-    async def add(cls, bili_uid, qq_uid):
-        key = cls._key + str(bili_uid)
-        value = qq_uid
-        return await redis_cache.set(key, value)
-
-    @classmethod
-    async def get(cls, bili_uid):
-        key = cls._key + str(bili_uid)
-        return await redis_cache.get(key)
-
-    @classmethod
-    async def get_all(cls, return_raw_keys=False):
-        key = cls._key + "*"
-        keys = await redis_cache.execute("keys", key)
-        if return_raw_keys or not keys:
-            return keys
-
-        qq_uid_list = await redis_cache.mget(*keys)
-        result = []
-        index = 0
-        for qq_uid in qq_uid_list:
-            bili_uid = int(keys[index][len(cls._key):])
-            result.append((bili_uid, qq_uid))
-            index += 1
-        return result
-
-    @classmethod
-    async def del_by_bili_uid(cls, bili_uid):
-        key = cls._key + str(bili_uid)
-        return await redis_cache.delete(key)
-
-    @classmethod
-    async def del_by_qq_uid(cls, qq_uid):
-        keys = await cls.get_all(return_raw_keys=True)
-        if keys:
-            qq_uids = await redis_cache.mget(*keys)
-            index = 0
-            for _ in qq_uids:
-                if _ == qq_uid:
-                    return await redis_cache.delete(keys[index])
-                index += 1
-        return 0
-
-
-class BiliToQQBindInfo(object):
-    key = "BINDINFO_BILI_TO_QQ"
+class MLBiliToQQBindInfo(object):
+    key = "ML_QQ_BIND_INFO"
 
     @classmethod
     async def bind(cls, qq, bili):
@@ -486,7 +423,7 @@ class BiliToQQBindInfo(object):
         return await redis_cache.set(key=cls.key, value=r)
 
     @classmethod
-    async def unbind(cls, bili):
+    async def unbind_by_bili(cls, bili):
         r = await redis_cache.get(cls.key)
         if not isinstance(r, (list, tuple)):
             r = []
@@ -497,6 +434,19 @@ class BiliToQQBindInfo(object):
         new_r = [p for p in r if p[1] != bili]
         await redis_cache.set(key=cls.key, value=new_r)
         return qq[0]
+
+    @classmethod
+    async def unbind_by_qq(cls, qq):
+        r = await redis_cache.get(cls.key)
+        if not isinstance(r, (list, tuple)):
+            r = []
+        bili = [p[1] for p in r if p[0] == qq]
+        if not bili:
+            return
+
+        new_r = [p for p in r if p[0] != qq]
+        await redis_cache.set(key=cls.key, value=new_r)
+        return bili
 
     @classmethod
     async def get_by_qq(cls, qq):

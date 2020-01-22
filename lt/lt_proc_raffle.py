@@ -6,12 +6,29 @@ import datetime
 import traceback
 from config import g
 from aiohttp import web
-from utils.cq import async_zy
+from utils.cq import async_zy, ml_qq
 from utils.biliapi import BiliApi
 from utils.udp import mq_source_to_raffle
 from config.log4 import lt_server_logger as logging
-from utils.dao import redis_cache, RedisGuard, RedisRaffle, RedisAnchor, InLotteryLiveRooms
+from utils.dao import redis_cache, RedisGuard, RedisRaffle, RedisAnchor, InLotteryLiveRooms, MLBiliToQQBindInfo
 from utils.model import objects, Guard, Raffle
+
+
+async def notice_qq(room_id, winner_uid, winner_name, prize_gift_name, sender_name):
+
+    qq_1 = await MLBiliToQQBindInfo.get_by_bili(bili=winner_uid)
+    if qq_1:
+        message = f"恭喜{winner_name}[{winner_uid}]中了{prize_gift_name}！\n[CQ:at,qq={qq_1}]"
+        r = await ml_qq.send_group_msg(group_id=981983464, message=message)
+        logging.info(f"__ML NOTICE__ r: {r}")
+
+    if winner_uid in (g.BILI_UID_DD, g.BILI_UID_TZ, g.BILI_UID_CZ):
+        message = (
+            f"恭喜{winner_name}({winner_uid})[CQ:at,qq={g.QQ_NUMBER_DD}]"
+            f"获得了{sender_name}提供的{prize_gift_name}!\n"
+            f"https://live.bilibili.com/{room_id}"
+        )
+        await async_zy.send_private_msg(user_id=g.QQ_NUMBER_DD, message=message)
 
 
 class Executor:
@@ -78,6 +95,16 @@ class Executor:
             raffle.update(update_param)
             await RedisRaffle.add(raffle_id=raffle_id, value=raffle)
             await Raffle.create(**raffle)
+
+            if winner_uid:
+                # notice
+                await notice_qq(
+                    room_id=room_id,
+                    winner_uid=winner_uid,
+                    winner_name=winner_name,
+                    prize_gift_name=prize_gift_name,
+                    sender_name=sender_name
+                )
 
     async def d(self, *args):
         """ danmaku to qq """
