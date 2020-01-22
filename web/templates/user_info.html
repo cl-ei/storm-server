@@ -16,6 +16,11 @@
     tr, th, td{
         border: 1px solid #7a7a7a;
     }
+    .medal{
+        color: white;
+        border-radius: 5px;
+        padding: 1px 5px 1px 5px;
+    }
     </style>
 </head>
 <body>
@@ -65,7 +70,10 @@
         </tr>
         {% for m in medal_info %}
         <tr>
-            <td><span class="medal">{{ m.medal_name }}<span class="medal-level">{{ m.level }}</span></span></td>
+            <td><span class="medal" style="background-color: {{ "%X" % m.color }}">
+                <span class="medal-text">{{ m.medal_name }}</span>
+                <span class="medal-level">{{ m.level }}</span>
+            </span></td>
             <td>{{ m.uname }}</td>
             <td>{{ m.intimacy }}</td>
             <td>{{ m.receive_time }}</td>
