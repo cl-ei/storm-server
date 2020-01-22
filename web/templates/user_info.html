@@ -18,8 +18,11 @@
     }
     .medal{
         color: white;
-        border-radius: 5px;
-        padding: 1px 5px 1px 5px;
+        border-radius: 2px;
+        padding: 2px 2px 2px 4px;
+    }
+    .medal-text{
+        background-color: white;
     }
     </style>
 </head>
@@ -72,7 +75,7 @@
         <tr>
             <td><span class="medal" style="background-color: {{ "%X" % m.color }}">
                 <span class="medal-text">{{ m.medal_name }}</span>
-                <span class="medal-level">{{ m.level }}</span>
+                <span class="medal-level" style="color: {{ "%X" % m.color }}">{{ m.level }}</span>
             </span></td>
             <td>{{ m.uname }}</td>
             <td>{{ m.intimacy }}</td>
