@@ -309,4 +309,4 @@ async def user_info(request):
         "user_name": user_obj.name,
         "uid": user_obj.uid
     }
-    return render_to_response(template="web/templates/user_info", context=context)
+    return render_to_response(template="web/templates/user_info.html", context=context)
