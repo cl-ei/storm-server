@@ -1,6 +1,7 @@
 import asyncio
 from aiohttp import web
 from web.handlers import bili
+from utils.model import objects
 
 """
 from config.log4 import web_access_logger
@@ -15,6 +16,7 @@ async def log_access(request, handler):
 
 
 async def main():
+    await objects.connect()
     app = web.Application()
     app.add_routes([
         web.get('/bili/broadcast', bili.broadcast),
