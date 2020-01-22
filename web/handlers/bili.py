@@ -5,7 +5,7 @@ import datetime
 from aiohttp import web
 from jinja2 import Template
 from config import CDN_URL
-from utils.model import AsyncMySQL
+from utils.model import AsyncMySQL, BiliUser
 
 
 def render_to_response(template, context=None):
@@ -241,15 +241,11 @@ async def query_raffles_by_user(request, user):
             text=f"day_range参数超出范围。最早可以查询2019年7月2日之后的记录，day_range范围 1 ~ {total_days}。",
             content_type="text/html"
         )
+    user_obj = await BiliUser.get_by_uid_or_name(user)
+    if not user_obj:
+        return web.Response(text=f"未收录该用户: {user}", content_type="text/html")
 
-    if not user or len(user) > 50:
-        return web.Response(text="请输入正确的用户。", content_type="text/html")
-
-    try:
-        uid = int(user)
-    except (TypeError, ValueError):
-        return web.Response(text="请输入uid。", content_type="text/html")
-
+    uid = user.uid
     user_record = await AsyncMySQL.execute(
         "select id, uid, name from biliuser where uid = %s;", (uid, )
     )

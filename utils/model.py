@@ -197,6 +197,20 @@ class BiliUser(peewee.Model):
             )
         return obj
 
+    @classmethod
+    async def get_by_uid_or_name(cls, uid_or_name):
+        try:
+            user = await objects.get(cls, uid=int(uid_or_name))
+            return user
+        except (TypeError, ValueError, peewee.DoesNotExist):
+            pass
+
+        try:
+            user = await objects.get(cls, name=uid_or_name)
+            return user
+        except (TypeError, ValueError, peewee.DoesNotExist):
+            pass
+
 
 class Guard(peewee.Model):
     id = peewee.IntegerField(primary_key=True)
