@@ -24,6 +24,14 @@ lt_server_logger.setLevel(logging.DEBUG)
 lt_server_logger.addHandler(console)
 lt_server_logger.addHandler(_lt_server_fh)
 
+_api_fh = logging.FileHandler(os.path.join(LOG_PATH, "api.log"))
+_api_fh.setFormatter(log_format)
+api_logger = logging.getLogger("api")
+api_logger.setLevel(logging.DEBUG)
+api_logger.addHandler(console)
+api_logger.addHandler(_api_fh)
+
+
 file_handler = logging.FileHandler(os.path.join(LOG_PATH, "crontab_task.log"))
 file_handler.setFormatter(log_format)
 crontab_task_logger = logging.getLogger("crontab_task")
@@ -67,6 +75,8 @@ def config_logger(file_name):
 __all__ = (
     "log_format",
     "console_logger",
+    "crontab_task_logger",
+    "api_logger",
     "lt_server_logger",
     "website_logger",
     "web_access_logger",
