@@ -245,14 +245,7 @@ async def query_raffles_by_user(request, user):
     if not user_obj:
         return web.Response(text=f"未收录该用户: {user}", content_type="text/html")
 
-    uid = user.uid
-    user_record = await AsyncMySQL.execute(
-        "select id, uid, name from biliuser where uid = %s;", (uid, )
-    )
-    if not user_record:
-        return web.Response(text="未收录该用户。", content_type="text/html")
-
-    winner_obj_id, uid, user_name = user_record[0]
+    winner_obj_id, uid, user_name = user_obj.id, user_obj.uid, user_obj.name
     records = await AsyncMySQL.execute(
         (
             "select room_id, prize_gift_name, expire_time, sender_name, id from raffle "
@@ -262,6 +255,7 @@ async def query_raffles_by_user(request, user):
     )
     if not records:
         return web.Response(text=f"用户{uid} - {user_name} 在{day_range}天内没有中奖。", content_type="text/html")
+
     room_id_list = [row[0] for row in records]
     room_info = await AsyncMySQL.execute(
         (
