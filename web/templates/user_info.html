@@ -64,7 +64,8 @@
     </table>
 
     {% if medal_flag %}
-        <h2>拥有勋章：（共{{ medal_info|length }}个）</h2>
+        <h2>拥有勋章：（共{{ medal_info.medal_list|length }}个）</h2>
+        <p> 更新时间：{{ medal_info.update_time }} </p>
         <table>
         <tr>
             <th>勋章</th>
@@ -72,7 +73,7 @@
             <th>亲密度</th>
             <th>开通时间</th>
         </tr>
-        {% for m in medal_info %}
+        {% for m in medal_info.medal_list %}
         <tr>
             <td><span class="medal" style="background-color: {{ "%X" % m.color }}">
                 <span class="medal-text">{{ m.medal_name }}</span>

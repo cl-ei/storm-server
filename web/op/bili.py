@@ -124,5 +124,6 @@ async def get_medal_info(user_obj):
         return False, r
 
     medal_list = sorted(r, key=lambda x: (x["level"], x["intimacy"]), reverse=True)
+    medal_list = {"update_time": now, "medal_list": medal_list}
     await redis_cache.set(key=cache_key, value=medal_list, timeout=3600*36)
     return True, medal_list
