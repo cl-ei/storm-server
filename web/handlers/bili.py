@@ -3,10 +3,10 @@ import json
 import copy
 import datetime
 from aiohttp import web
+from web.op import bili
 from jinja2 import Template
 from config import CDN_URL
 from utils.model import AsyncMySQL, BiliUser
-from web.op import bili
 
 
 def render_to_response(template, context=None):

@@ -1,5 +1,6 @@
 import datetime
 from utils.biliapi import BiliApi
+from utils.dao import redis_cache
 from utils.model import AsyncMySQL
 
 
@@ -106,9 +107,22 @@ async def get_used_names(user_obj):
 
 
 async def get_medal_info(user_obj):
+    cache_key = f"USER_MEDAL_{user_obj.uid}"
+    r = await redis_cache.get(cache_key)
+    if r:
+        return True, r
+
+    now = datetime.datetime.now()
+    freq_key = f"USER_MEDAL_FREQ_{now.hour}_{now.minute // 5}"
+    count = redis_cache.incr(freq_key)
+    redis_cache.expire(freq_key, timeout=60*5)
+    if count > 10:
+        return False, "服务器请求过多，请5分钟后再刷新。"
+
     flag, r = await BiliApi.get_user_medal_list(uid=user_obj.uid)
     if not flag or not isinstance(r, list) or not r:
         return False, r
 
     medal_list = sorted(r, key=lambda x: (x["level"], x["intimacy"]), reverse=True)
+    await redis_cache.set(key=cache_key, value=medal_list, timeout=3600*36)
     return True, medal_list
