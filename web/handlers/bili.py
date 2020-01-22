@@ -6,6 +6,7 @@ from aiohttp import web
 from jinja2 import Template
 from config import CDN_URL
 from utils.model import AsyncMySQL, BiliUser
+from web.op import bili
 
 
 def render_to_response(template, context=None):
@@ -305,55 +306,7 @@ async def user_info(request):
     if not user_obj:
         return web.Response(text=f"未收录该用户: {user_str}", content_type="text/html")
 
-    opened_guards = await AsyncMySQL.execute(
-        "select g.room_id, g.gift_name, g.created_time "
-        "from guard g "
-        "where g.sender_obj_id = %s and g.created_time >= %s "
-        "order by g.room_id, g.created_time desc;",
-        (user_obj.id, datetime.datetime.now() - datetime.timedelta(days=45))
-    )
-    guards_info = []
-
-    if opened_guards:
-        rooms_info = await AsyncMySQL.execute(
-            "select real_room_id, short_room_id, name from biliuser where real_room_id in %s;",
-            ([r[0] for r in opened_guards],)
-        )
-        room_id_map = {r[0]: r[1] for r in rooms_info if r[0] and r[1]}
-        room_id_to_name = {r[0]: r[2] for r in rooms_info}
-
-        def gen_time_prompt(interval):
-            if interval > 3600 * 24:
-                return f"约{int(interval // (3600 * 24))}天前"
-            elif interval > 3600:
-                return f"约{int(interval // 3600)}小时前"
-            elif interval > 60:
-                return f"约{int(interval // 60)}分钟前"
-            return f"{int(interval)}秒前"
-
-        now = datetime.datetime.now()
-        temp = {}
-        for g in opened_guards:
-            room_id, gift_name, created_time = g
-            short_room_id = room_id_map.get(room_id, room_id)
-            interval_prompt = gen_time_prompt((now - created_time).total_seconds())
-            master_name = room_id_to_name.get(room_id, "??")
-
-            key = (short_room_id, gift_name, interval_prompt, master_name)
-            if key in temp:
-                temp[key] += 1
-            else:
-                temp[key] = 1
-
-        for k, count in temp.items():
-            guards_info.append({
-                "room_id": k[0],
-                "gift_name": k[1],
-                "count": count,
-                "interval_prompt": k[2],
-                "master_name": k[3],
-            })
-        guards_info.sort(key=lambda x: (x["room_id"], x["interval_prompt"], x["gift_name"], x["count"]))
+    guards_info = await bili.get_send_gifts(user_obj)
     context = {
         "last_update": user_obj.user_info_update_time,
         "user_name": user_obj.name,
