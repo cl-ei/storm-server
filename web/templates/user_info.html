@@ -65,7 +65,7 @@
         </tr>
         {% for m in medal_info %}
         <tr>
-            <td>{{ m.medal_name }}|{{ m.level }}</td>
+            <td><span class="medal">{{ m.medal_name }}<span class="medal-level">{{ m.level }}</span></span></td>
             <td>{{ m.uname }}</td>
             <td>{{ m.intimacy }}</td>
             <td>{{ m.receive_time }}</td>
