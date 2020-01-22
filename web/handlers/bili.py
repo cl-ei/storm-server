@@ -23,7 +23,7 @@ def json_response(data):
     return web.Response(text=json.dumps(data), content_type="application/json")
 
 
-async def query_gifts(request):
+async def guards(request):
     start_time = time.time()
     json_req = request.query.get("json")
     try:
@@ -102,7 +102,7 @@ async def query_gifts(request):
         "proc_time": f"{(time.time() - start_time):.3f}",
         "db_query_time": f"{db_query_time:.3f}",
     }
-    return render_to_response("web/templates/website_query_gifts.html", context=context)
+    return render_to_response("web/templates/guards.html", context=context)
 
 
 async def query_raffles(request):

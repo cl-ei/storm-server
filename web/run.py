@@ -18,7 +18,7 @@ async def main():
     app = web.Application()
     app.add_routes([
         web.get('/bili/broadcast', bili.broadcast),
-        web.get('/bili/query_gifts', bili.query_gifts),
+        web.get('/bili/guards', bili.guards),
         web.get('/bili/query_raffles', bili.query_raffles),
         web.get('/bili/query_raffles_by_user', bili.query_raffles_by_user),
     ])
