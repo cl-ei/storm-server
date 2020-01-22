@@ -114,7 +114,7 @@ async def get_medal_info(user_obj):
 
     now = datetime.datetime.now()
     freq_key = f"USER_MEDAL_FREQ_{now.hour}_{now.minute // 5}"
-    count = redis_cache.incr(freq_key)
+    count = await redis_cache.incr(freq_key)
     redis_cache.expire(freq_key, timeout=60*5)
     if count > 10:
         return False, "服务器请求过多，请5分钟后再刷新。"
