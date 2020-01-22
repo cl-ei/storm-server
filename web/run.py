@@ -19,7 +19,7 @@ async def main():
     app.add_routes([
         web.get('/bili/broadcast', bili.broadcast),
         web.get('/bili/guards', bili.guards),
-        web.get('/bili/query_raffles', bili.query_raffles),
+        web.get('/bili/raffles', bili.raffles),
         web.get('/bili/query_raffles_by_user', bili.query_raffles_by_user),
     ])
     runner = web.AppRunner(app)

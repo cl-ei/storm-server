@@ -106,7 +106,7 @@ async def guards(request):
     return render_to_response("web/templates/guards.html", context=context)
 
 
-async def query_raffles(request):
+async def raffles(request):
     json_req = request.query.get("json")
     try:
         page_size = int(request.query["page_size"])
