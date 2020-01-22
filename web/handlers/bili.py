@@ -213,7 +213,7 @@ async def raffles(request):
         "raffle_count": len(raffle_data),
         "CDN_URL": CDN_URL,
     }
-    return render_to_response("web/templates/website_query_raffles.html", context=context)
+    return render_to_response("web/templates/raffles.html", context=context)
 
 
 async def query_raffles_by_user(request):
