@@ -11,6 +11,7 @@ from utils.biliapi import BiliApi
 from utils.udp import mq_source_to_raffle
 from config.log4 import lt_server_logger as logging
 from utils.dao import redis_cache, RedisGuard, RedisRaffle, RedisAnchor, InLotteryLiveRooms
+from utils.model import objects, Guard, Raffle
 
 
 class Executor:
@@ -76,6 +77,7 @@ class Executor:
             }
             raffle.update(update_param)
             await RedisRaffle.add(raffle_id=raffle_id, value=raffle)
+            await Raffle.create(**raffle)
 
     async def d(self, *args):
         """ danmaku to qq """
@@ -136,6 +138,7 @@ class Executor:
             "expire_time": expire_time,
         }
         await RedisGuard.add(raffle_id=inner_raffle_id, value=create_param)
+        await Guard.create(**create_param)
 
         await self.broadcast(json.dumps({
             "raffle_type": "storm",
@@ -264,6 +267,7 @@ class Executor:
                 "expire_time": created_time + datetime.timedelta(seconds=info["time"])
             }
             await RedisRaffle.add(raffle_id=raffle_id, value=create_param, _pre=True)
+            await Raffle.record_raffle_before_result(**create_param)
 
         for gift_type, gift_name in gift_type_to_name_map.items():
             await redis_cache.set(key=f"GIFT_TYPE_{gift_type}", value=gift_name)
@@ -328,6 +332,8 @@ async def main():
     logging.info("-" * 80)
     logging.info("LT PROC_RAFFLE started!")
     logging.info("-" * 80)
+
+    await objects.connect()
 
     app = web.Application()
     app['ws'] = weakref.WeakSet()
