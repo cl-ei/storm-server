@@ -297,3 +297,11 @@ async def query_raffles_by_user(request, user):
 async def broadcast(request):
     context = {"CDN_URL": CDN_URL}
     return render_to_response("web/templates/broadcast.html", context=context)
+
+
+async def user_info(request):
+    user_str = request.match_info['user']
+    user_obj = await BiliUser.get_by_uid_or_name(user_str)
+    if not user_obj:
+        return web.Response(text=f"未收录该用户: {user_str}", content_type="text/html")
+    return web.Response(text=f"用户: {user_obj.name}(uid: {user_obj.uid})", content_type="text/html")
