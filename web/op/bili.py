@@ -1,4 +1,5 @@
 import datetime
+from utils.biliapi import BiliApi
 from utils.model import AsyncMySQL
 
 
@@ -102,3 +103,12 @@ async def get_used_names(user_obj):
     )
     n |= {r[0] for r in q}
     return n
+
+
+async def get_medal_info(user_obj):
+    flag, r = await BiliApi.get_user_medal_list(uid=user_obj.uid)
+    if not flag or not isinstance(r, list) or not r:
+        return False, r
+
+    medal_list = sorted(r, key=lambda x: (x["level"], x["intimacy"]), reverse=True)
+    return True, medal_list

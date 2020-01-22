@@ -309,6 +309,7 @@ async def user_info(request):
     guards_info = await bili.get_send_gifts(user_obj)
     used_names = await bili.get_used_names(user_obj)
     used_names = "、".join([n for n in used_names if n != user_obj.name])
+    medal_flag, medal_info = await bili.get_medal_info(user_obj)
     context = {
         "last_update": user_obj.user_info_update_time,
         "user_name": user_obj.name,
@@ -320,5 +321,7 @@ async def user_info(request):
         "create_at": user_obj.create_at,
         "used_names": used_names,
         "guards_info": guards_info,
+        "medal_flag": medal_flag,
+        "medal_info": medal_info,
     }
     return render_to_response(template="web/templates/user_info.html", context=context)

@@ -53,5 +53,35 @@
     </tr>
     {% endfor %}
     </table>
+
+    {% if medal_flag %}
+        <h2>拥有勋章：（共{{ medal_info|length }}个）</h2>
+        <table>
+        <tr>
+            <th>勋章</th>
+            <th>主播</th>
+            <th>亲密度</th>
+            <th>开通时间</th>
+        </tr>
+        {% for m in medal_info %}
+        <tr>
+            <td>{{ m.medal_name }}|{{ m.level }}</td>
+            <td>{{ m.uname }}</td>
+            <td>{{ m.intimacy }}</td>
+            <td>{{ m.receive_time }}</td>
+        </tr>
+        {% endfor %}
+        </table>
+
+        name = m["medal_name"]
+        level = m["level"]
+        current = m["intimacy"]
+        total = m["next_intimacy"]
+        msg_list.append(f"[{name}] {level}级，{current}/{total}")
+
+    {% else %}
+    <h2>用户勋章获取失败：{{ medal_info }}</h2>
+    {% endif %}
+
 </body>
 </html>
