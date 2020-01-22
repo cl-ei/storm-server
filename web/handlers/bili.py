@@ -353,7 +353,7 @@ async def user_info(request):
                 "interval_prompt": k[2],
                 "master_name": k[3],
             })
-        guards_info.sort(key=lambda x: (x["interval_prompt"], x["room_id"], x["gift_name"], x["count"]))
+        guards_info.sort(key=lambda x: (x["room_id"], x["interval_prompt"], x["gift_name"], x["count"]))
     context = {
         "last_update": user_obj.user_info_update_time,
         "user_name": user_obj.name,
