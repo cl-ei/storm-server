@@ -61,7 +61,14 @@ async def get_send_gifts(user_obj):
                 "interval_prompt": k[2],
                 "master_name": k[3],
             })
-        guards_info.sort(key=lambda x: (x["room_id"], x["interval_prompt"], x["gift_name"], x["count"]))
+
+        def sort_gift_name(n):
+            try:
+                return ["总督", "提督", "舰长"].index(n)
+            except ValueError:
+                return len(n)
+
+        guards_info.sort(key=lambda x: (x["room_id"], x["interval_prompt"], sort_gift_name(x["gift_name"]), x["count"]))
 
     return guards_info
 
