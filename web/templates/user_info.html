@@ -43,8 +43,10 @@
     </tr>
     {% for g in guards_info %}
     <tr>
-        <td><a href="https://live.bilibili.com/{{ g.room_id }}" target="_blank">{{ g.room_id }}</a></td>
-        <td>{{ g.master_name }}</td>
+        {% if g.room_id %}
+        <td rowspan="{{ g.rowspan }}"><a href="https://live.bilibili.com/{{ g.room_id }}" target="_blank">{{ g.room_id }}</a></td>
+        <td rowspan="{{ g.rowspan }}">{{ g.master_name }}</td>
+        {% endif %}
         <td>{{ g.gift_name }}</td>
         <td>{{ g.count }}</td>
         <td>{{ g.interval_prompt }}</td>

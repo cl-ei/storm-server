@@ -40,35 +40,48 @@ async def get_send_gifts(user_obj):
             return f"{int(interval)}秒前"
 
         now = datetime.datetime.now()
-        temp = {}
+        group_by_room = {}
         for g in gifts:
             room_id, gift_name, created_time = g
-            short_room_id = room_id_map.get(room_id, room_id)
             interval_prompt = gen_time_prompt((now - created_time).total_seconds())
-            master_name = room_id_to_name.get(room_id, "??")
-
-            key = (short_room_id, gift_name, interval_prompt, master_name)
-            if key in temp:
-                temp[key] += 1
+            if room_id in group_by_room:
+                gift = group_by_room[room_id]
             else:
-                temp[key] = 1
+                gift = {}
+                group_by_room[room_id] = gift
 
-        for k, count in temp.items():
-            guards_info.append({
-                "room_id": k[0],
-                "gift_name": k[1],
-                "count": count,
-                "interval_prompt": k[2],
-                "master_name": k[3],
-            })
+            key = (gift_name, interval_prompt)
+            if key in gift:
+                gift[key] += 1
+            else:
+                gift[key] = 1
 
-        def sort_gift_name(n):
-            try:
-                return ["总督", "提督", "舰长"].index(n)
-            except ValueError:
-                return len(n)
+        result = []
+        for room_id, gifts in group_by_room.items():
+            master_name = room_id_to_name.get(room_id, "??")
+            room_id = room_id_map.get(room_id, room_id)
 
-        guards_info.sort(key=lambda x: (x["room_id"], x["interval_prompt"], sort_gift_name(x["gift_name"]), x["count"]))
+            gifts_info = []
+            for key, count in gifts.items():
+                gift_name, interval_prompt = key
+                gifts_info.append({
+                    "gift_name": gift_name,
+                    "interval_prompt": interval_prompt,
+                    "count": count,
+                })
+            gifts_info.sort(key=lambda x: (x["gift_name"], x["interval_prompt"], x["count"]))
+
+            for i, g in enumerate(gifts_info):
+                if i == 0:
+                    g.update({
+                        "room_id": room_id,
+                        "master_name": master_name,
+                        "rowspan": len(gifts)
+                    })
+                result.append(g)
+
+        guards_info = result
+        print(guards_info)
 
     return guards_info
 
