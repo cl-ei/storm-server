@@ -183,7 +183,7 @@ async def query_raffles_by_user(user, day_range):
             "raffle_id": raffle_id,
             "prize_gift_name": prize_gift_name,
             "sender_name": sender_name,
-            "expire_time": expire_time,
+            "expire_time": str(expire_time),
             "master_name": master_name,
         }
         raffle_data.insert(0, info)
