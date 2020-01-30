@@ -177,9 +177,15 @@ async def query_raffles_by_user(user, day_range):
         short_room_id, master_name = room_dict.get(room_id, ("-", None))
         if short_room_id == room_id:
             short_room_id = "-"
+
+        display_room_id = room_id
+        if short_room_id and short_room_id not in ("-", "None", "NULL", "null"):
+            display_room_id = short_room_id
+
         info = {
             "short_room_id": short_room_id,
             "real_room_id": room_id,
+            "display_room_id": display_room_id,
             "raffle_id": raffle_id,
             "prize_gift_name": prize_gift_name,
             "sender_name": sender_name,
