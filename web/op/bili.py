@@ -130,6 +130,9 @@ async def get_medal_info(user_obj):
 
 
 async def query_raffles_by_user(user, day_range):
+    if not user:
+        return f"用户名或id错误。"
+
     now = datetime.datetime.now()
     raffle_start_record_time = now.replace(year=2019, month=7, day=2, hour=0, minute=0, second=0, microsecond=0)
 
