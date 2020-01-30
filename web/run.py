@@ -23,7 +23,7 @@ async def main():
         web.get('/bili/guards', bili.guards),
         web.get('/bili/raffles', bili.raffles),
         web.get('/bili/user/{user}', bili.user_info),
-
+        web.get('/bili/realtime_guards', bili.realtime_guards),
     ])
     runner = web.AppRunner(app)
     await runner.setup()
