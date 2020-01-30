@@ -226,73 +226,18 @@ async def raffles(request):
 
 async def query_raffles_by_user(request, user):
     day_range = request.query.get("day_range")
-    now = datetime.datetime.now()
-    raffle_start_record_time = now.replace(year=2019, month=7, day=2, hour=0, minute=0, second=0, microsecond=0)
+    result = await bili.query_raffles_by_user(user, day_range=day_range)
+    json_req = request.query.get("json")
+    if json_req:
+        if not isinstance(result, dict):
+            result = {"code": 5000, "msg": result}
+        if "code" not in result:
+            result["code"] = 0
+        return web.Response(text=json.dumps(result, ensure_ascii=False), content_type="application/json")
 
-    try:
-        day_range = int(day_range)
-        assert day_range > 1
-    except (ValueError, TypeError, AssertionError):
-        return web.Response(text="day_range参数错误。", content_type="text/html")
-
-    end_date = now - datetime.timedelta(days=day_range)
-    if end_date < raffle_start_record_time:
-        total_days = int((now - raffle_start_record_time).total_seconds() / 3600 / 24)
-        return web.Response(
-            text=f"day_range参数超出范围。最早可以查询2019年7月2日之后的记录，day_range范围 1 ~ {total_days}。",
-            content_type="text/html"
-        )
-    user_obj = await BiliUser.get_by_uid_or_name(user)
-    if not user_obj:
-        return web.Response(text=f"未收录该用户: {user}", content_type="text/html")
-
-    winner_obj_id, uid, user_name = user_obj.id, user_obj.uid, user_obj.name
-    records = await AsyncMySQL.execute(
-        (
-            "select room_id, prize_gift_name, expire_time, sender_name, id from raffle "
-            "where winner_obj_id = %s and expire_time > %s "
-            "order by expire_time desc ;"
-        ), (winner_obj_id, datetime.datetime.now() - datetime.timedelta(days=day_range))
-    )
-    if not records:
-        return web.Response(text=f"用户{uid} - {user_name} 在{day_range}天内没有中奖。", content_type="text/html")
-
-    room_id_list = [row[0] for row in records]
-    room_info = await AsyncMySQL.execute(
-        (
-            "select short_room_id, real_room_id, name "
-            "from biliuser where real_room_id in %s;"
-        ), (room_id_list, )
-    )
-    room_dict = {}
-    for row in room_info:
-        short_room_id, real_room_id, name = row
-        room_dict[real_room_id] = (short_room_id, name)
-
-    raffle_data = []
-    for row in records:
-        room_id, prize_gift_name, expire_time, sender_name, raffle_id = row
-        short_room_id, master_name = room_dict.get(room_id, ("-", None))
-        if short_room_id == room_id:
-            short_room_id = "-"
-        info = {
-            "short_room_id": short_room_id,
-            "real_room_id": room_id,
-            "raffle_id": raffle_id,
-            "prize_gift_name": prize_gift_name,
-            "sender_name": sender_name,
-            "expire_time": expire_time,
-            "master_name": master_name,
-        }
-        raffle_data.insert(0, info)
-
-    context = {
-        "uid": uid,
-        "user_name": user_name,
-        "day_range": day_range,
-        "raffle_data": raffle_data,
-    }
-    return render_to_response("web/templates/raffles_by_user.html", context=context)
+    if isinstance(result, dict):
+        return render_to_response("web/templates/raffles_by_user.html", context=result)
+    return web.Response(text=result)
 
 
 async def broadcast(request):
