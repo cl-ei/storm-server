@@ -12,7 +12,7 @@ from utils.model import objects, MonitorWsClient
 
 
 DEBUG = True
-MONITOR_COUNT = 20000
+MONITOR_COUNT = 15000
 
 
 if sys.argv[-1].lower() == "--product":
@@ -145,13 +145,25 @@ class WsClient:
             logging.debug(F"_listen BROKEN: {self.room_id}, reason: {closed_reason}")
 
             self._reconnect_time += 1
-            if self._reconnect_time < 3:
-                sleep_time = randint(200, 1000) / 1000
-            elif self._reconnect_time < 10:
-                sleep_time = randint(1000, 5000) / 1000
+            if self._reconnect_time < 2:
+                sleep_time = 1
+            elif self._reconnect_time < 3:
+                sleep_time = 3
+            elif self._reconnect_time < 4:
+                sleep_time = 5
+            elif self._reconnect_time < 5:
+                sleep_time = 7
+            elif self._reconnect_time < 6:
+                sleep_time = 10
+            elif self._reconnect_time < 7:
+                sleep_time = 15
+            elif self._reconnect_time < 8:
+                sleep_time = 30
+            elif self._reconnect_time < 9:
+                sleep_time = 60
             else:
-                sleep_time = randint(5000, 15000) / 1000
-            await asyncio.sleep(sleep_time)
+                sleep_time = 80
+            await asyncio.sleep(sleep_time + randint(0, 5000) / 1000)
 
     async def connect(self):
         if self.task is not None:
