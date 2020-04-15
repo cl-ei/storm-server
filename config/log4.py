@@ -60,6 +60,14 @@ web_access_logger.setLevel(logging.DEBUG)
 web_access_logger.addHandler(console)
 web_access_logger.addHandler(web_access_fh)
 
+file_handler = logging.FileHandler(os.path.join(LOG_PATH, "bili_api.log"))
+file_handler.setFormatter(log_format)
+bili_api_logger = logging.getLogger("bili_api")
+bili_api_logger.setLevel(logging.DEBUG)
+bili_api_logger.addHandler(console)
+bili_api_logger.addHandler(file_handler)
+bili_api_logger.addHandler(stormgift_file_handler)
+
 
 def config_logger(file_name):
     file_name = file_name.lower()
@@ -81,4 +89,5 @@ __all__ = (
     "website_logger",
     "web_access_logger",
     "config_logger",
+    "bili_api_logger",
 )

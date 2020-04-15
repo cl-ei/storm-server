@@ -1,7 +1,9 @@
 import re
 import sys
+import zlib
 import json
 import time
+import struct
 import base64
 import asyncio
 import aiohttp
@@ -12,6 +14,7 @@ from random import random
 from utils.dao import redis_cache
 from config import cloud_function_url
 from config import cloud_login
+from config.log4 import bili_api_logger as logging
 
 
 class CookieFetcher:
@@ -307,20 +310,43 @@ class WsApi(object):
         package = '{"uid":%s,"roomid":%s}' % (uid, room_id)
         return cls.generate_packet(cls.CONST_MESSAGE, package)
 
+    structure = struct.Struct("!I2H2I")
+
     @classmethod
     def parse_msg(cls, message):
-        msg_list = []
+        result = []
         while message:
-            length = (message[0] << 24) + (message[1] << 16) + (message[2] << 8) + message[3]
-            current_msg = message[:length]
-            message = message[length:]
-            if len(current_msg) > 16 and current_msg[16] != 0:
-                try:
-                    msg = current_msg[16:].decode("utf-8", errors="ignore")
-                    msg_list.append(json.loads(msg))
-                except Exception as e:
-                    print("e: %s, m: %s" % (e, current_msg))
-        return msg_list
+            tuple_header = cls.structure.unpack_from(message)
+            len_data, len_header, ver, opt, seq = tuple_header
+            data = message[len_header:len_data]
+            message = message[len_data:]
+
+            if opt == 8:
+                # join
+                continue
+            elif opt == 3:
+                # heart beat
+                continue
+            elif opt == 5:
+                if ver == 2:
+                    data = zlib.decompress(data)
+                    while data:
+                        len_data, len_header, ver, opt, seq = cls.structure.unpack_from(data[:16])
+                        start = len_header
+                        end = len_data
+                        m = json.loads(data[start:end])
+                        data = data[end:]
+                        result.append(m)
+                else:
+                    try:
+                        m = json.loads(data)
+                        result.append(m)
+                    except Exception as e:
+                        logging.error(f"e: {e}, opt5: ver: {ver} data: \n{data}\n\ntraceback: {traceback.format_exc()}")
+                        continue
+        return result
+
+
 
 
 class BiliApi:
