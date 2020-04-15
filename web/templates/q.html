@@ -110,9 +110,10 @@
             background: #ccc;
             box-shadow: 2px 4px 7px 1px #888888;
             cursor: pointer;
+            transition: all 0.3s ease-out;
         }
         #submit:hover{
-            background: #333;
+            background: #dedede;
         }
     </style>
     <style id="dynamic-line-height"></style>
@@ -175,7 +176,24 @@ $(function(){
             window.messagesBuffer = [];
         }
     };
-    printToConsole("请在下方的输入框输入命令：");
+    printToConsole('<span style="color: #FFB900;">提示：</span>' + "请在下方的输入框输入命令：");
+    $("#submit").click(function (){
+        let msg = $("textarea[name=cmd]").val() || "";
+        if (msg.length <= 0) return;
+
+        printToConsole('<span style="color: #006400;">发送：</span>' + msg);
+
+        $.ajax({
+            url: "/bili/q/{{ user_id }}/{{ web_token }}?msg=" + msg,
+            type: "get",
+            success: function (r){
+                console.log("r: ", r);
+            },
+            error: function (data) {
+                printToConsole('<span style="color: #B64955;">发生错误：</span>' +  data.responseText);
+            }
+        });
+    });
 })
 </script>
 </body>
