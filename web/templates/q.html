@@ -92,13 +92,35 @@
             text-overflow: ellipsis;
             overflow: hidden;
         }
+        .cmd{
+            margin: 0px;
+            width: calc(100% - 80px);
+            height: 250px;
+            float: left;
+        }
+        #submit{
+            color: #000;
+            font-size: 20px;
+            text-shadow: 1px 1px 4px #797979;
+            width: 76px;
+            margin-left: 2px;
+            height: 100px;
+            margin-top: 75px;
+            border: none;
+            background: #ccc;
+            box-shadow: 2px 4px 7px 1px #888888;
+            cursor: pointer;
+        }
+        #submit:hover{
+            background: #fff;
+        }
     </style>
     <style id="dynamic-line-height"></style>
 </head>
 <body>
 <div id="console"></div>
 <div id="cmd-input">
-    <input class="cmd" type="text" name="cmd">
+    <textarea class="cmd" type="text" name="cmd">
     <button class="button center" id="submit">发送</button>
 </div>
 <script src="https://media.madliar.com/static/js/reconnectwebsocket.min.js"></script>
