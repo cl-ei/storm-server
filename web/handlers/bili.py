@@ -1,6 +1,7 @@
 import time
 import json
 import copy
+import aiohttp
 import datetime
 from aiohttp import web
 from web.op import bili
@@ -318,3 +319,21 @@ async def realtime_guards(request):
 
     context = {"guard_list": guard_list, "update_time": str(datetime.datetime.now())[:19]}
     return web.Response(text=json.dumps(context, ensure_ascii=False), content_type="application/json")
+
+
+async def q(request):
+    user_id = request.match_info['user_id']
+    web_token = request.match_info['web_token']
+    msg = request.query.get("msg")
+    if msg:
+        url = f"http://lt.madliar.com:2020/bili/q/{user_id}/{web_token}"
+        timeout = aiohttp.ClientTimeout(total=5)
+        async with aiohttp.request("get", url=url, params={"msg": msg}, timeout=timeout) as req:
+            response = await req.text(encoding="utf-8", errors="ignore")
+        return web.Response(text=response)
+
+    context = {
+        "user_id": user_id,
+        "web_token": web_token,
+    }
+    return render_to_response(template="web/templates/q.html", context=context)
