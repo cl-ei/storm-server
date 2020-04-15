@@ -77,11 +77,11 @@
             background: #000;
         }
         #console{
-            height: 100%;
+            height: calc(100% - 250px);
             width: 100%;
             background: #000;
             float: left;
-            font-size: 12px;
+            font-size: 18px;
             overflow-y: scroll;
             word-break: break-word;
         }
@@ -97,6 +97,10 @@
 </head>
 <body>
 <div id="console"></div>
+<div id="cmd-input">
+    <input class="cmd" type="text" name="cmd">
+    <button class="button center" id="submit">发送</button>
+</div>
 <script src="https://media.madliar.com/static/js/reconnectwebsocket.min.js"></script>
 <script src="https://media.madliar.com/static/js/jquery.min.js"></script>
 <script src="https://media.madliar.com/static/js/bootstrap.min.js"></script>
