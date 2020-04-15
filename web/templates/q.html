@@ -187,7 +187,7 @@ $(function(){
             url: "/bili/q/{{ user_id }}/{{ web_token }}?msg=" + msg,
             type: "get",
             success: function (r){
-                console.log("r: ", r);
+                printToConsole('<span style="color: #cd6000;">回复：</span>' + r);
             },
             error: function (data) {
                 printToConsole('<span style="color: #B64955;">发生错误：</span>' +  data.responseText);
