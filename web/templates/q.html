@@ -187,7 +187,12 @@ $(function(){
             url: "/bili/q/{{ user_id }}/{{ web_token }}?msg=" + msg,
             type: "get",
             success: function (r){
-                printToConsole('<span style="color: #cd6000;">回复：</span>' + r);
+                function replaceAll (str , oldSubStr, newSubStr) {
+                    if (str != null && oldSubStr!= null && newSubStr!= null) {
+                        return str.replace(new RegExp(oldSubStr, 'gm'), newSubStr)
+                    }
+                }
+                printToConsole('<span style="color: #cd6000;">回复：</span>' + replaceAll(r, "\n", "<br/>"));
             },
             error: function (data) {
                 printToConsole('<span style="color: #B64955;">发生错误：</span>' +  data.responseText);
