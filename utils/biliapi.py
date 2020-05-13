@@ -1260,20 +1260,39 @@ class BiliApi:
 
     @classmethod
     async def get_gurads_list(cls):
-        print(f"get_gurads_list: {1}")
-        url = "https://bilipage.expublicsite.com:23333/bilibili/guard/v1/simpleView"
+        """
+
+        :return: result -> {
+            123123: "fasdfa",
+            123123: "fasdfa",
+        }
+        """
+        url = "https://bilipage.expublicsite.com:23333/bilibili/guard/v1/view"
         flag, data = await cls.get(url=url)
         if not flag:
             logging.error(f"Cannot get guard list: {data}")
             return False, data
 
-        _, all_ = data.split("提督列表", 1)
-        td, jz = all_.split("舰长列表", 1)
+        result = {}
+        lines = data.split("</tr>")
+        for line in lines:
+            fields = line.replace("<td>", "").split("</td>")
 
-        td_list = re.findall(r"live.bilibili.com/(\d+)\"", td)
-        jz_list = re.findall(r"live.bilibili.com/(\d+)\"", jz)
+            if len(fields) != 9:
+                continue
+            room_id = int(fields[1])
+            count = int(fields[3])
+            start = fields[4]
+            stop = fields[5]
 
-        return True, ([int(_) for _ in td_list], [int(_) for _ in jz_list])
+            result.setdefault(room_id, []).append(f"{count}${start}${stop}")
+
+        inner_result = {}
+        for room_id, key in result.items():
+            key.sort()
+            inner_result[room_id] = "@".join(key)
+
+        return True, inner_result
 
 
 async def test():
