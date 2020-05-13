@@ -363,12 +363,12 @@ class BiliApi:
     }
 
     @classmethod
-    async def _request_async(cls, method, url, headers, params, data, timeout):
+    async def _request_async(cls, method, url, headers, params, data, timeout, force_cloud=False):
         if url in (
             "https://api.bilibili.com/x/relation/followers?pn=1&ps=50&order=desc&jsonp=jsonp",
             "https://api.live.bilibili.com/room/v1/Room/room_init",
             "https://api.live.bilibili.com/msg/send",
-        ):
+        ) or force_cloud is True:
             req_json = {
                 "method": method,
                 "url": url,
@@ -390,7 +390,7 @@ class BiliApi:
                 return status_code, content
 
     @classmethod
-    async def _request(cls, method, url, headers, data, timeout, check_response_json, check_error_code):
+    async def _request(cls, method, url, headers, data, timeout, check_response_json, check_error_code, **kw):
         if check_error_code:
             check_response_json = True
 
@@ -406,7 +406,7 @@ class BiliApi:
             headers = cls.headers
 
         try:
-            status_code, content = await cls._request_async(method, url, headers, params, data, timeout)
+            status_code, content = await cls._request_async(method, url, headers, params, data, timeout, **kw)
         except asyncio.TimeoutError:
             return False, "Bili api HTTP request timeout!"
         except Exception as e:
@@ -437,12 +437,14 @@ class BiliApi:
             return True, result
 
     @classmethod
-    async def get(cls, url, headers=None, data=None, timeout=5, check_response_json=False, check_error_code=False):
-        return await cls._request("get", url, headers, data, timeout, check_response_json, check_error_code)
+    async def get(cls, url, headers=None, data=None,
+                  timeout=5, check_response_json=False, check_error_code=False, **kw):
+        return await cls._request("get", url, headers, data, timeout, check_response_json, check_error_code, **kw)
 
     @classmethod
-    async def post(cls, url, headers=None, data=None, timeout=5, check_response_json=False, check_error_code=False):
-        return await cls._request("post", url, headers, data, timeout, check_response_json, check_error_code)
+    async def post(cls, url, headers=None, data=None,
+                   timeout=5, check_response_json=False, check_error_code=False, **kw):
+        return await cls._request("post", url, headers, data, timeout, check_response_json, check_error_code, **kw)
 
     @classmethod
     async def get_living_rooms_by_area(cls, area_id, timeout=30):
@@ -477,10 +479,10 @@ class BiliApi:
         return True, live_area == area
 
     @classmethod
-    async def lottery_check(cls, room_id, timeout=30):
+    async def lottery_check(cls, room_id, timeout=30, **kw):
         req_url = "https://api.live.bilibili.com/xlive/lottery-interface/v1/lottery/Check"
         data = {"roomid": room_id}
-        flag, r = await cls.get(url=req_url, data=data, timeout=timeout, check_error_code=True)
+        flag, r = await cls.get(url=req_url, data=data, timeout=timeout, check_error_code=True, **kw)
         if not flag:
             return flag, r
         data = r["data"]
@@ -1255,6 +1257,23 @@ class BiliApi:
         headers = {"Cookie": cookie}
         r = await cls.post(url=url, data=data, headers=headers, timeout=timeout, check_response_json=True)
         return r
+
+    @classmethod
+    async def get_gurads_list(cls):
+        print(f"get_gurads_list: {1}")
+        url = "https://bilipage.expublicsite.com:23333/bilibili/guard/v1/simpleView"
+        flag, data = await cls.get(url=url)
+        if not flag:
+            logging.error(f"Cannot get guard list: {data}")
+            return False, data
+
+        _, all_ = data.split("提督列表", 1)
+        td, jz = all_.split("舰长列表", 1)
+
+        td_list = re.findall(r"live.bilibili.com/(\d+)\"", td)
+        jz_list = re.findall(r"live.bilibili.com/(\d+)\"", jz)
+
+        return True, ([int(_) for _ in td_list], [int(_) for _ in jz_list])
 
 
 async def test():
