@@ -12,13 +12,13 @@ async def proc_one_room(room_id):
     if not flag:
         logging.error(f"Cannot get lottery from room: {room_id}. reason: {result}")
         return
-    logging.info(f"result: {result}")
     guards, gifts = result
 
     ts = int(time.time())
     for guard in guards:
         msg = {"data": {"lottery": guard}}
         mq_source_to_raffle.put_nowait(("G", room_id, msg, ts))
+    logging.info(f"{room_id} -> guards: {len(guards)}")
 
 
 async def main():
