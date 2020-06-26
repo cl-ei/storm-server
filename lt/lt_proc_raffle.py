@@ -378,7 +378,13 @@ async def main():
             request.app['ws'].discard(ws)
         return ws
 
-    app.add_routes([web.get('/raffle_wss', broadcaster), ])
+    async def qsize(request):
+        return web.Response(text=f"{len(request.app['ws'])}")
+
+    app.add_routes([
+        web.get('/raffle_wss', broadcaster),
+        web.get('/qsize', qsize),
+    ])
     runner = web.AppRunner(app)
     await runner.setup()
 
