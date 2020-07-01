@@ -3,6 +3,8 @@ import socket
 import asyncio
 from db.tables import DMKSource
 
+PKL_PROTOCOL = pickle.DEFAULT_PROTOCOL
+
 
 class UdpServer:
     def __init__(self, host: str = "127.0.0.1", port: int = 40000):
@@ -38,10 +40,12 @@ class UdpServer:
         return self._data_receive_q.qsize()
 
     def get_nowait(self) -> DMKSource:
-        return self._data_receive_q.get_nowait()
+        r = self._data_receive_q.get_nowait()
+        return pickle.loads(r)
 
     async def get(self) -> DMKSource:
-        return await self._data_receive_q.get()
+        r = await self._data_receive_q.get()
+        return pickle.loads(r)
 
 
 class UdpClient:
@@ -76,14 +80,14 @@ class UdpClient:
         return self.transport.sendto(data)
 
     def put_nowait(self, message: DMKSource):
-        py_obj_bytes = pickle.dumps(message)
+        py_obj_bytes = pickle.dumps(message, protocol=PKL_PROTOCOL)
         return self.sync_udp_client.sendto(
             data=py_obj_bytes,
             address=(self.host, self.port)
         )
 
     async def put(self, message: DMKSource):
-        py_obj_bytes = pickle.dumps(message)
+        py_obj_bytes = pickle.dumps(message, protocol=PKL_PROTOCOL)
         await self._sendto(py_obj_bytes)
 
 

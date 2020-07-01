@@ -354,7 +354,7 @@ class RaffleProcessor:
 
 
 async def main():
-    logging.info(f"{'-' * 80}\nLT PROC_RAFFLE started!\n{'-' * 80}")
+    logging.info(f"\n{'-' * 80}\nLT PROC_RAFFLE started!\n{'-' * 80}")
     await objects.connect()
     await mq_server.start_listen()
 
