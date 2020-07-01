@@ -34,6 +34,6 @@ class RaffleBroadCast(RWSchema):
     async def save(self, redis):
         result = await redis.zset_zadd(
             key=self.__key__,
-            member_pairs=(self, time.time())
+            member_pairs=[(self, time.time())]
         )
         logging.info(f"RaffleBroadCast saved! {self} -> {result}")
