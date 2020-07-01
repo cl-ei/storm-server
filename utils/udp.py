@@ -26,7 +26,7 @@ class UdpServer:
                 self.transport = transport
 
             def datagram_received(self, data, addr):
-                self.data_receive_q.put_nowait((data, addr))
+                self.data_receive_q.put_nowait(data)
 
         event_loop = asyncio.get_event_loop()
         self.transport, self.protocol = await event_loop.create_datagram_endpoint(
