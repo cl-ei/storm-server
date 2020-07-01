@@ -1,14 +1,14 @@
-import re
-import os
-import configparser
 import time
 import json
 import random
 import pickle
 import asyncio
 import aioredis
-import datetime
+import configparser
 from config import REDIS_CONFIG
+from typing import Dict, Any, Union, List
+
+PKL_PROTOCOL = pickle.DEFAULT_PROTOCOL
 
 
 class RedisCache(object):
@@ -179,55 +179,88 @@ class RedisCache(object):
     async def incr(self, key):
         return await self.execute("INCR", key)
 
-    async def sorted_set_zadd(self, key, *args):
-        # args: score, member, ...
-        safe_args = []
-        if len(args) % 2 != 0:
-            raise ValueError("Error args.")
+    async def zset_zadd(self, key: str, member_to_score: Dict[Any, float], _un_pickle=False):
+        """
+        向有序集合添加一个或多个成员，或者更新已存在成员的分数
 
-        for i, arg in enumerate(args):
-            if i % 2 == 1:
-                safe_args.append(str(arg))
-            else:
-                safe_args.append(float(arg))
+        ZADD key score1 member1 [score2 member2]
+
+        """
+        safe_args = []
+        for member, score in member_to_score.items():
+            if not _un_pickle:
+                member = pickle.dumps(member, protocol=PKL_PROTOCOL)
+            safe_args.extend([float(score), member])
         return await self.execute("ZADD", key, *safe_args)
 
-    async def sorted_set_zcard(self, key):
+    async def zset_zcard(self, key) -> int:
+        """ 获取有序集合的成员数 """
         return await self.execute("ZCARD", key)
 
-    async def sorted_set_zincr(self, key, member, increment):
-        return await self.execute("ZINCRBY", key, increment, member)
+    async def zset_zrange_by_score(
+            self,
+            key: str,
+            min_: Union[str, float] = "-inf",
+            max_: Union[str, float] = "+inf",
+            offset: int = 0,
+            limit: int = 10000,
+            _un_pickle: bool = False,
+    ) -> List[Dict[Any, float]]:
+        """
+        通过分数返回有序集合指定区间内的成员
 
-    async def sorted_set_zrange_by_score(self, key, min_="-inf", max_="+inf", with_scores=False, offset=0, limit=1000):
-        args = ["ZRANGEBYSCORE", key, min_, max_]
-        if with_scores:
-            args.append("WITHSCORES")
-        args.extend(["limit", offset, limit])
-        r = await self.execute(*args)
-        if not with_scores:
-            return [_.decode() for _ in r]
-        result = []
-        for i, data in enumerate(r):
-            if i % 2 == 0:
-                result.append(data.decode("utf-8"))
+        ZRANGEBYSCORE key min max [WITHSCORES] [LIMIT]
+        """
+        result = await self.execute(
+            "ZRANGEBYSCORE", key, min_, max_, "WITHSCORES",
+            "limit", offset, limit
+        )
+
+        return_data = []
+        temp_key = None
+        for i, data in enumerate(result):
+            if i % 2 == 0:  # member
+                if not _un_pickle:
+                    data = pickle.loads(data)
+                temp_key = data
             else:
-                result.append(float(data))
-        return result
+                return_data.append({temp_key: float(data)})
+        return return_data
 
-    async def sorted_set_zrem(self, key, *members):
+    async def zset_zrem(self, key, *members, _un_pickle=False):
+        """
+        移除有序集合中的一个或多个成员
+
+        ZREM key member [member ...]
+        """
+        if not _un_pickle:
+            members = [
+                pickle.dumps(m, protocol=PKL_PROTOCOL)
+                for m in members
+            ]
         return await self.execute("ZREM", key, *members)
 
-    async def sorted_set_zrank(self, key, member, reversed=True):
-        cmd = "ZREVRANK" if reversed else "ZRANK"
-        return await self.execute(cmd, key, member)
+    async def zset_zrem_by_score(
+            self,
+            key: str,
+            min_: Union[str, float],
+            max_: Union[str, float]
+    ) -> int:
+        """
+        移除有序集合中给定的分数区间的所有成员
 
-    async def sorted_set_zrem_by_rank(self, key, start, stop):
-        return await self.execute("ZREMRANGEBYRANK", key, start, stop)
-
-    async def sorted_set_zrem_by_score(self, key, min_, max_):
+        ZREMRANGEBYSCORE key min max
+        """
         return await self.execute("ZREMRANGEBYSCORE", key, min_, max_)
 
-    async def sorted_set_zscore(self, key, member):
+    async def zset_zscore(self, key: str, member: Any, _un_pickle: bool = False):
+        """
+        返回有序集中，成员的分数值
+
+        ZSCORE key member
+        """
+        if not _un_pickle:
+            member = pickle.dumps(member, protocol=PKL_PROTOCOL)
         return await self.execute("ZSCORE", key, member)
 
 
@@ -274,47 +307,6 @@ class RedisLock:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await redis_cache.delete(self.key)
-
-
-class HansyGiftRecords(object):
-    gift_key = "HANSY_GIFT_{year}_{month}"
-
-    @classmethod
-    async def add_log(cls, uid, uname, gift_name, coin_type, price, count, created_timestamp, rnd=0):
-        today = datetime.datetime.today()
-        key = cls.gift_key.replace("{year}", str(today.year)).replace("{month}", str(today.month))
-        r = await redis_cache.list_push(key, [uid, uname, gift_name, coin_type, price, count, created_timestamp, rnd])
-        return r
-
-    @classmethod
-    async def get_log(cls):
-        today = datetime.datetime.today()
-        key = cls.gift_key.replace("{year}", str(today.year)).replace("{month}", str(today.month))
-        r = await redis_cache.list_get_all(key)
-        return r
-
-
-class HansyQQGroupUserInfo(object):
-
-    _key = "HANSY_QQ_GROUP_USER_INFO_{group_id}_{user_id}"
-
-    @classmethod
-    async def get_info(cls, group_id, user_id):
-        key = cls._key.replace("{group_id}", str(group_id)).replace("{user_id}", str(user_id))
-        r = await redis_cache.list_get_all(key)
-        return r
-
-    @classmethod
-    async def add_info(cls, group_id, user_id, info):
-        key = cls._key.replace("{group_id}", str(group_id)).replace("{user_id}", str(user_id))
-        r = await redis_cache.list_push(key, info)
-        return r
-
-    @classmethod
-    async def get_all_user_id(cls, group_id):
-        key = cls._key.replace("{group_id}", str(group_id)).replace("{user_id}", "*")
-        keys = await redis_cache.execute("KEYS", key)
-        return [int(k.decode("utf-8").split("_")[-1]) for k in keys]
 
 
 class ValuableLiveRoom(object):
@@ -405,504 +397,6 @@ class MonitorLiveRooms(object):
             if room_id not in (0, "0", None, "")
         }
         return await redis_cache.set(cls._key, live_room_id_set)
-
-
-class MLBiliToQQBindInfo(object):
-    key = "ML_QQ_BIND_INFO"
-
-    @classmethod
-    async def bind(cls, qq, bili):
-        bind_pair = (int(qq), int(bili))
-
-        r = await redis_cache.get(cls.key)
-        if not isinstance(r, (list, tuple)):
-            r = []
-        if bili in [p[1] for p in r]:
-            return
-        r.append(bind_pair)
-        return await redis_cache.set(key=cls.key, value=r)
-
-    @classmethod
-    async def unbind_by_bili(cls, bili):
-        r = await redis_cache.get(cls.key)
-        if not isinstance(r, (list, tuple)):
-            r = []
-        qq = [p[0] for p in r if p[1] == bili]
-        if not qq:
-            return
-
-        new_r = [p for p in r if p[1] != bili]
-        await redis_cache.set(key=cls.key, value=new_r)
-        return qq[0]
-
-    @classmethod
-    async def unbind_by_qq(cls, qq):
-        r = await redis_cache.get(cls.key)
-        if not isinstance(r, (list, tuple)):
-            r = []
-        bili = [p[1] for p in r if p[0] == qq]
-        if not bili:
-            return
-
-        new_r = [p for p in r if p[0] != qq]
-        await redis_cache.set(key=cls.key, value=new_r)
-        return bili
-
-    @classmethod
-    async def get_by_qq(cls, qq):
-        r = await redis_cache.get(cls.key)
-        if not isinstance(r, (list, tuple)):
-            r = []
-        for qq_num, bili in r:
-            if qq_num == qq:
-                return int(bili)
-        return None
-
-    @classmethod
-    async def get_by_bili(cls, bili):
-        r = await redis_cache.get(cls.key)
-        if not isinstance(r, (list, tuple)):
-            r = []
-        for qq, b in r:
-            if b == bili:
-                return qq
-        return None
-
-    @classmethod
-    async def get_all_bili(cls, qq):
-        r = await redis_cache.get(cls.key)
-        return [p[1] for p in r if p[0] == qq]
-
-
-class HansyDynamicNotic(object):
-    key = "HANSY_DYNAMIC_NOTICE"
-
-    @classmethod
-    async def add(cls, qq):
-        await redis_cache.set_add(cls.key, qq)
-
-    @classmethod
-    async def remove(cls, qq):
-        await redis_cache.set_remove(cls.key, qq)
-
-    @classmethod
-    async def get(cls):
-        return await redis_cache.set_get_all(cls.key)
-
-
-class HYMCookies:
-    key = "HYM_COOKIES_"
-
-    @classmethod
-    async def add(cls, account, password, cookie):
-        key = cls.key + str(account)
-        value = {"cookie": cookie, "password": password}
-        await redis_cache.set(key=key, value=value)
-
-    @classmethod
-    async def get(cls, account=None, return_dict=False):
-        if account is None:
-            keys = await redis_cache.keys(cls.key + "*")
-            r = await redis_cache.mget(*keys)
-            if not return_dict:
-                return r
-
-            result = {}
-            for index in range(len(keys)):
-                key = keys[index]
-                account = key[len(cls.key):]
-                data = r[index]
-                result[account] = data
-            return result
-
-        r = await redis_cache.get(cls.key + str(account))
-        return {account: r} if return_dict else r
-
-    @classmethod
-    async def set_invalid(cls, account):
-        key = cls.key + str(account)
-        data = await redis_cache.get(key)
-        data["invalid"] = True
-        await redis_cache.set(key, data)
-        return True
-
-    @classmethod
-    async def set_blocked(cls, account):
-        key = cls.key + str(account)
-        data = await redis_cache.get(key)
-        data["blocked"] = int(time.time())
-        await redis_cache.set(key, data)
-        return True
-
-
-class HYMCookiesOfCl(HYMCookies):
-    key = "HYM_CL_COOKIES_"
-
-
-class LTUserSettings:
-    key = f"LT_USER_SETTINGS"
-
-    @classmethod
-    async def get_all(cls):
-        keys = await redis_cache.keys(f"{cls.key}_*")
-        settings = await redis_cache.mget(*keys)
-        result = {}
-        for i, key in enumerate(keys):
-            setting = settings[i]
-            user_id = int(key[len(cls.key) + 1:])
-
-            medals = setting.get("medals", [])
-            for _ in [1, 2, 3]:
-                old_medal = setting.get(f"medal_{_}")
-                if old_medal and old_medal not in medals:
-                    medals.append(old_medal)
-            setting["medals"] = medals
-            result[user_id] = setting
-
-        return result
-
-    @classmethod
-    async def get(cls, uid):
-        key = f"{cls.key}_{uid}"
-        settings = await redis_cache.get(key=key)
-        if not isinstance(settings, dict):
-            settings = {}
-
-        for key in ("tv_percent", "guard_percent", "pk_percent"):
-            if key not in settings:
-                settings[key] = 100
-
-        if "storm_percent" not in settings:
-            settings["storm_percent"] = 0
-        if "anchor_percent" not in settings:
-            settings["anchor_percent"] = 0
-
-        medals = settings.get("medals", [])
-        for i in [1, 2, 3]:
-            old_medal = settings.get(f"medal_{i}")
-            if old_medal and old_medal not in medals:
-                medals.append(old_medal)
-
-        while True:
-            if len(medals) >= 8:
-                break
-            medals.append("")
-        settings["medals"] = medals
-        return settings
-
-    @classmethod
-    async def set(
-        cls,
-        uid,
-        tv_percent=100,
-        guard_percent=100,
-        pk_percent=100,
-        storm_percent=0,
-        anchor_percent=0,
-        medals=None,
-    ):
-
-        key = f"{cls.key}_{uid}"
-        settings = await redis_cache.get(key=key)
-        if not isinstance(settings, dict):
-            settings = {}
-        settings["tv_percent"] = tv_percent
-        settings["guard_percent"] = guard_percent
-        settings["pk_percent"] = pk_percent
-        settings["storm_percent"] = storm_percent
-        settings["anchor_percent"] = anchor_percent
-        settings["medals"] = []
-
-        for _ in [1, 2, 3]:
-            if f"medal_{_}" in settings:
-                settings.pop(f"medal_{_}")
-        if isinstance(medals, list):
-            for m in medals:
-                if m not in settings["medals"]:
-                    settings["medals"].append(m)
-        await redis_cache.set(key=key, value=settings)
-        return True
-
-    @classmethod
-    async def filter_cookie(cls, cookies, key):
-        uid_list = [c.uid for c in cookies]
-        keys = [f"{cls.key}_{u}" for u in uid_list]
-        settings_list = await redis_cache.mget(*keys)
-
-        result = []
-        for index in range(len(cookies)):
-            cookie = cookies[index]
-            setting = settings_list[index]
-            if not isinstance(setting, dict):
-                setting = {}
-
-            if key in ("storm_percent", "anchor_percent"):
-                percent = setting.get(key, 0)
-            else:
-                percent = setting.get(key, 100)
-            if random.randint(0, 99) < percent:  # 考虑到percent == 0时
-                result.append(cookie)
-
-        return result
-
-
-class StormGiftBlackRoom:
-    key = "LT_STORM_GIFT_BLOCKED"
-
-    @classmethod
-    async def set_blocked(cls, user_id):
-        key = f"{cls.key}_{user_id}"
-        await redis_cache.set(key=key, value=1, timeout=3600*3)
-
-    @classmethod
-    async def is_blocked(cls, user_id):
-        key = f"{cls.key}_{user_id}"
-        is_blocked = await redis_cache.get(key)
-        return is_blocked == 1
-
-
-class SuperDxjUserSettings:
-    key = "LT_SUPER_DXJ_SETTINGS"
-
-    @classmethod
-    async def set(
-            cls,
-            room_id: int,
-            account: str,
-            password: str,
-            carousel_msg: list,
-            carousel_msg_interval: int,
-            thank_silver: int,
-            thank_silver_text: str,
-            thank_gold: int,
-            thank_gold_text: str,
-            thank_follower: int,
-            thank_follower_text: str,
-            auto_response: list,
-    ):
-        key = f"{cls.key}_{room_id}"
-        value = {
-            "account": account,
-            "password": password,
-            "carousel_msg": carousel_msg,
-            "carousel_msg_interval": carousel_msg_interval,
-            "thank_silver": thank_silver,
-            "thank_silver_text": thank_silver_text,
-            "thank_gold": thank_gold,
-            "thank_gold_text": thank_gold_text,
-            "thank_follower": thank_follower,
-            "thank_follower_text": thank_follower_text,
-            "auto_response": auto_response,
-            "last_update_time": int(time.time()),
-        }
-        await redis_cache.set(key=key, value=value)
-
-    @classmethod
-    async def get(cls, room_id):
-        key = f"{cls.key}_{room_id}"
-        r = await redis_cache.get(key)
-        if not isinstance(r, dict):
-            r = {}
-
-        r.setdefault("account", "")
-        r.setdefault("password", "")
-        r.setdefault("carousel_msg", [])
-        r.setdefault("carousel_msg_interval", 120)
-
-        default_thank_text = "感谢{user}赠送的{num}个{gift},大气大气~"
-        r.setdefault("thank_silver", 0)
-        r.setdefault("thank_silver_text", default_thank_text)
-        r.setdefault("thank_gold", 0)
-        r.setdefault("thank_gold_text", default_thank_text)
-        r.setdefault("thank_follower", 0)
-
-        default_thank_text = "感谢{user}的关注~"
-        r.setdefault("thank_follower_text", default_thank_text)
-        r.setdefault("auto_response", [])
-        r.setdefault("last_update_time", int(time.time())),
-
-        auto_response = []
-        for pair in r["auto_response"]:
-            if pair and len(pair) == 2 and pair[0] and pair[1]:
-                auto_response.append(pair)
-        r["auto_response"] = auto_response
-
-        return r
-
-
-class SuperDxjUserAccounts:
-    key = "LT_SUPER_DXJ_ACCOUNT"
-
-    @classmethod
-    async def get(cls, user_id):
-        key = f"{cls.key}_{user_id}"
-        return await redis_cache.get(key=key)
-
-    @classmethod
-    async def set(cls, user_id, password):
-        key = f"{cls.key}_{user_id}"
-        return await redis_cache.set(key=key, value=password)
-
-    @classmethod
-    async def delete(cls, user_id):
-        key = f"{cls.key}_{user_id}"
-        return await redis_cache.delete(key=key)
-
-    @classmethod
-    async def get_all_live_rooms(cls):
-        p = f"{cls.key}_*"
-        r = await redis_cache.keys(p)
-
-        result = []
-        for k in r:
-            try:
-                room_id = k[len(cls.key) + 1:]
-                result.append(int(room_id))
-            except (ValueError, TypeError):
-                continue
-
-        return result
-
-
-class SuperDxjCookieMgr:
-    key_prefix = f"LT_SUPER_DXJ_USER_COOKIE"
-
-    @classmethod
-    async def save_cookie(cls, account, cookie):
-        key = f"{cls.key_prefix}_{account}"
-        await redis_cache.set(key, cookie, timeout=3600*24*30)
-
-    @classmethod
-    async def load_cookie(cls, account):
-        key = f"{cls.key_prefix}_{account}"
-        return await redis_cache.get(key)
-
-    @classmethod
-    async def set_invalid(cls, account):
-        key = f"{cls.key_prefix}_{account}"
-        await redis_cache.delete(key)
-
-
-class UserRaffleRecord:
-    key = "LT_USER_RAFFLE_RECORD"
-
-    @classmethod
-    async def create(cls, user_id, gift_name, raffle_id, intimacy=0, created_time=None):
-        key = f"{cls.key}_{user_id}"
-        if created_time is None:
-            created_time = time.time()
-        await redis_cache.sorted_set_zadd(key, created_time, f"{gift_name}${raffle_id}${intimacy}")
-        await redis_cache.sorted_set_zrem_by_score(key=key, min_="-inf", max_=time.time() - 25*3600)
-
-    @classmethod
-    async def get_by_user_id(cls, user_id):  # -> list(float, list)
-        key = f"{cls.key}_{user_id}"
-        r = await redis_cache.sorted_set_zrange_by_score(
-            key,
-            min_=time.time() - 24*3600,
-            max_="+inf",
-            with_scores=False,
-            offset=0, limit=50000
-        )
-        return r
-
-    @classmethod
-    async def get_count(cls, user_id):
-        key = f"{cls.key}_{user_id}"
-        return await redis_cache.sorted_set_zcard(key)
-
-
-class DelayAcceptGiftsQueue:
-    key = "LT_DELAY_ACCEPT"
-
-    @classmethod
-    async def put(cls, data, accept_time):
-        data = json.dumps(data)
-        await redis_cache.sorted_set_zadd(cls.key, accept_time, data)
-
-    @classmethod
-    async def get(cls):
-        now = time.time()
-        r = await redis_cache.sorted_set_zrange_by_score(key=cls.key, max_=now)
-        if r:
-            await redis_cache.sorted_set_zrem(cls.key, *r)
-        result = []
-        for d in r:
-            try:
-                result.append(json.loads(d))
-            except (json.JSONDecodeError, TypeError):
-                continue
-        return result
-
-    @classmethod
-    async def get_all(cls):
-        r = await redis_cache.sorted_set_zrange_by_score(key=cls.key, with_scores=True)
-        result = []
-        for i, d in enumerate(r):
-            if i % 2 == 0:
-                try:
-                    d = json.loads(d)
-                except (json.JSONDecodeError, TypeError):
-                    pass
-                result.append(d)
-            else:
-                result.append(d)
-        return result
-
-
-class LTTempBlack:
-    key = "LT_TEMP_BLACK"
-
-    @classmethod
-    async def manual_accept_once(cls, uid):
-        key = F"LT_DUP_ACCEPT_COUNT_{uid}"
-        r = await redis_cache.incr(key)
-        if r == 1:
-            await redis_cache.expire(key, timeout=3600)
-        elif r > 20:
-            await redis_cache.delete(key)
-            await redis_cache.set(F"{cls.key}_{uid}", value=True, timeout=3600 * 4)
-
-    @classmethod
-    async def get_blocked(cls):
-        blocked_keys = await redis_cache.keys("LT_TEMP_BLACK_*")
-        return [int(k[len(cls.key) + 1:]) for k in blocked_keys]
-
-    @classmethod
-    async def get_blocking_time(cls, uid):
-        return await redis_cache.ttl(f"{cls.key}_{uid}")
-
-    @classmethod
-    async def remove(cls, uid):
-        await redis_cache.delete(f"{cls.key}_{uid}")
-
-
-class LTLastAcceptTime:
-    key = "LT_LAST_ACCEPT_TIME"
-
-    @classmethod
-    async def update(cls, *uid_list):
-        r = await redis_cache.get(key=cls.key)
-        if not isinstance(r, dict):
-            r = {}
-        now = int(time.time())
-        for uid in uid_list:
-            r[int(uid)] = now
-        await redis_cache.set(key=cls.key, value=r)
-
-    @classmethod
-    async def get_all(cls):
-        r = await redis_cache.get(cls.key)
-        if not isinstance(r, dict):
-            r = {}
-        return r
-
-    @classmethod
-    async def get_by_uid(cls, uid):
-        r = await redis_cache.get(cls.key)
-        if not isinstance(r, dict):
-            r = {}
-        return r.get(uid) or 0
 
 
 class RedisGuard:

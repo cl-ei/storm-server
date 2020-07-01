@@ -1,40 +1,22 @@
 import time
 import json
-import weakref
 import asyncio
 import datetime
 import traceback
 from config import g
-from aiohttp import web
-from utils.cq import async_zy, ml_qq
+from utils.cq import async_zy
+from utils.udp import mq_server
 from utils.biliapi import BiliApi
-from utils.udp import mq_source_to_raffle
+from db.tables import DMKSource, RaffleBroadCast
 from config.log4 import lt_server_logger as logging
-from utils.dao import redis_cache, RedisGuard, RedisRaffle, RedisAnchor, InLotteryLiveRooms, MLBiliToQQBindInfo
+from utils.dao import redis_cache, RedisGuard, RedisRaffle, RedisAnchor, InLotteryLiveRooms
 from utils.model import objects, Guard, Raffle
 
 
-async def notice_qq(room_id, winner_uid, winner_name, prize_gift_name, sender_name):
-
-    qq_1 = await MLBiliToQQBindInfo.get_by_bili(bili=winner_uid)
-    if qq_1:
-        message = f"恭喜{winner_name}[{winner_uid}]中了{prize_gift_name}！\n[CQ:at,qq={qq_1}]"
-        r = await ml_qq.send_group_msg(group_id=981983464, message=message)
-        logging.info(f"__ML NOTICE__ r: {r}")
-
-    if winner_uid in (g.BILI_UID_DD, g.BILI_UID_TZ, g.BILI_UID_CZ):
-        message = (
-            f"恭喜{winner_name}({winner_uid})[CQ:at,qq={g.QQ_NUMBER_DD}]"
-            f"获得了{sender_name}提供的{prize_gift_name}!\n"
-            f"https://live.bilibili.com/{room_id}"
-        )
-        await async_zy.send_private_msg(user_id=g.QQ_NUMBER_DD, message=message)
-
-
 class Executor:
-    def __init__(self, start_time, br):
-        self._start_time = start_time
-        self.broadcast = br
+    def __init__(self, msg: DMKSource):
+        self._start_time = time.time()
+        self.msg = msg
 
     async def g(self, *args):
         key_type, room_id, danmaku, *_ = args
@@ -95,16 +77,6 @@ class Executor:
             raffle.update(update_param)
             await RedisRaffle.add(raffle_id=raffle_id, value=raffle)
             await Raffle.create(**raffle)
-
-            if winner_uid:
-                # notice
-                await notice_qq(
-                    room_id=room_id,
-                    winner_uid=winner_uid,
-                    winner_name=winner_name,
-                    prize_gift_name=prize_gift_name,
-                    sender_name=sender_name
-                )
 
     async def d(self, *args):
         """ danmaku to qq """
@@ -229,13 +201,14 @@ class Executor:
             else:
                 gift_name = f"guard_{privilege_type}"
 
-            await self.broadcast(json.dumps({
-                "raffle_type": "guard",
-                "ts": int(time.time()),
-                "real_room_id": room_id,
-                "raffle_id": raffle_id,
-                "gift_name": gift_name,
-            }, ensure_ascii=False))
+            bc = RaffleBroadCast(
+                raffle_type="guard",
+                ts=int(time.time()),
+                real_room_id=room_id,
+                raffle_id=raffle_id,
+                gift_name=gift_name,
+            )
+            await bc.save(redis_cache)
 
             created_time = datetime.datetime.fromtimestamp(self._start_time)
             expire_time = created_time + datetime.timedelta(seconds=info["time"])
@@ -252,7 +225,10 @@ class Executor:
             }
             await RedisGuard.add(raffle_id=raffle_id, value=create_param)
             await Guard.create(**create_param)
-            logging.info(f"\tGuard found: room_id: {room_id} $ {raffle_id} ({gift_name}) <- {sender['uname']}")
+            logging.info(
+                f"\tGuard found: room_id: {room_id} $ {raffle_id} "
+                f"({gift_name}) <- {sender['uname']}"
+            )
 
     async def _handle_tv(self, room_id, gift_list):
         await InLotteryLiveRooms.add(room_id=room_id)
@@ -266,22 +242,25 @@ class Executor:
 
             gift_type = info["type"]
             gift_name = info.get("thank_text", "").split("赠送的", 1)[-1]
-            gift_type_to_name_map[gift_type] = gift_name
-            await self.broadcast(json.dumps({
-                "raffle_type": "tv",
-                "ts": int(self._start_time),
-                "real_room_id": room_id,
-                "raffle_id": raffle_id,
-                "gift_name": gift_name,
-                "gift_type": gift_type,
-                "time_wait": info["time_wait"],
-                "max_time": info["max_time"],
-            }, ensure_ascii=False))
+            bc = RaffleBroadCast(
+                raffle_type="tv",
+                ts=int(time.time()),
+                real_room_id=room_id,
+                raffle_id=raffle_id,
+                gift_name=gift_name,
+                gift_type=gift_type,
+                time_wait=info["time_wait"],
+                max_time=info["max_time"],
+            )
+            await bc.save(redis_cache)
 
             sender_name = info["from_user"]["uname"]
             sender_face = info["from_user"]["face"]
             created_time = datetime.datetime.fromtimestamp(self._start_time)
-            logging.info(f"\tLottery found: room_id: {room_id} $ {raffle_id} ({gift_name}) <- {sender_name}")
+            logging.info(
+                f"\tLottery found: room_id: {room_id} $ {raffle_id} "
+                f"({gift_name}) <- {sender_name}"
+            )
 
             create_param = {
                 "raffle_id": raffle_id,
@@ -296,19 +275,22 @@ class Executor:
             }
             await RedisRaffle.add(raffle_id=raffle_id, value=create_param, _pre=True)
             await Raffle.record_raffle_before_result(**create_param)
+            gift_type_to_name_map[gift_type] = gift_name
 
         for gift_type, gift_name in gift_type_to_name_map.items():
             await redis_cache.set(key=f"GIFT_TYPE_{gift_type}", value=gift_name)
 
-    async def lottery_or_guard(self, *args):
-        key_type, room_id, *_ = args
+    async def hdl_lottery_or_guard(self):
+        room_id = self.msg.room_id
+        prize_type = self.msg.prize_type
+
         flag, result = await BiliApi.lottery_check(room_id=room_id)
         if not flag and "Empty raffle_id_list" in result:
             await asyncio.sleep(1)
             flag, result = await BiliApi.lottery_check(room_id=room_id)
 
         if not flag:
-            logging.error(f"Cannot get lottery({key_type}) from room: {room_id}. reason: {result}")
+            logging.error(f"Cannot get lottery({prize_type}) from room: {room_id}. reason: {result}")
             return
 
         guards, gifts = result
@@ -320,98 +302,67 @@ class Executor:
         data = danmaku["data"]
         await self._handle_tv(room_id=room_id, gift_list=[data])
 
-
-async def receive_prize_from_udp_server(task_q: asyncio.Queue, broadcast_target: asyncio.coroutines):
-    await mq_source_to_raffle.start_listen()
-
-    while True:
-        start_time = time.time()
-
-        sources = []
-        try:
-            while True:
-                sources.append(mq_source_to_raffle.get_nowait())
-        except asyncio.queues.QueueEmpty:
-            pass
-
-        de_dup = set()
-
-        for msg in sources:
-            key_type, room_id, *_ = msg
-            if key_type in ("G", "S", "R", "D", "P", "A", "RAFFLE_START"):
-                _, ts, *_ = _
-                executor = Executor(start_time=ts, br=broadcast_target)
-                task_q.put_nowait(getattr(executor, key_type.lower())(*msg))
-                # logging.info(f"Assign task: {key_type} room_id: {room_id}")
-
-            elif key_type in ("T", "Z"):
-                if room_id not in de_dup:
-                    de_dup.add(room_id)
-                    executor = Executor(start_time=start_time, br=broadcast_target)
-                    task_q.put_nowait(executor.lottery_or_guard(*msg))
-                    logging.info(f"Assign task: {key_type} room_id: {room_id}")
-
-        cost = time.time() - start_time
-        if cost < 1:
-            await asyncio.sleep(1 - cost)
+    async def run(self):
+        if self.msg.prize_type in ("T", "Z"):
+            await self.hdl_lottery_or_guard()
 
 
-async def main():
-    logging.info("-" * 80)
-    logging.info("LT PROC_RAFFLE started!")
-    logging.info("-" * 80)
+class RaffleProcessor:
 
-    await objects.connect()
+    def __init__(self):
+        self._dmk_source_q = asyncio.queues.Queue()
+        self._workers = []
 
-    app = web.Application()
-    app['ws'] = weakref.WeakSet()
-
-    async def broadcaster(request):
-        ws = web.WebSocketResponse()
-        await ws.prepare(request)
-
-        request.app['ws'].add(ws)
-        try:
-            async for msg in ws:
-                pass
-        finally:
-            request.app['ws'].discard(ws)
-        return ws
-
-    async def qsize(request):
-        return web.Response(text=f"{len(request.app['ws'])}")
-
-    app.add_routes([
-        web.get('/raffle_wss', broadcaster),
-        web.get('/qsize', qsize),
-    ])
-    runner = web.AppRunner(app)
-    await runner.setup()
-
-    site = web.TCPSite(runner, '127.0.0.1', 1024)
-    await site.start()
-    print("Site started.")
-
-    async def broadcast_target(message):
-        for ws in set(app['ws']):
-            await ws.send_str(f"{message}\n")
-
-    task_q = asyncio.Queue()
-    receiver_task = asyncio.create_task(receive_prize_from_udp_server(task_q, broadcast_target))
-
-    async def worker(index):
+    async def receive(self):
         while True:
-            c = await task_q.get()
+            de_dup = set()
+            for index in range(mq_server.qzise()):
+                msg = mq_server.get_nowait()
+                if msg.prize_type in ("T", "Z"):
+                    if msg.room_id in de_dup:
+                        continue
+                    de_dup.add(msg.room_id)
+                    self._dmk_source_q.put_nowait(msg)
+                    logging.info(f"Assign task: {msg.prize_type} -> {msg.room_id}")
+                elif msg.prize_type in ("G", "S", "R", "D", "P", "A", "RAFFLE_START"):
+                    self._dmk_source_q.put_nowait(msg)
+
+            await asyncio.sleep(3)
+
+    async def process_one(self, index: int):
+        while True:
+            msg = await self._dmk_source_q.get()
             start_time = time.time()
+
             try:
-                await c
+                executor = Executor(msg)
+                await executor.run()
             except Exception as e:
                 logging.error(f"RAFFLE worker[{index}] error: {e}\n{traceback.format_exc()}")
+
             cost_time = time.time() - start_time
             if cost_time > 5:
                 logging.warning(f"RAFFLE worker[{index}] exec long time: {cost_time:.3f}")
 
-    await asyncio.gather(receiver_task, *[asyncio.create_task(worker(_)) for _ in range(8)])
+    async def work(self):
+        self._workers = [
+            asyncio.create_task(self.process_one(index))
+            for index in range(8)
+        ]
+        for t in self._workers:
+            await t
+
+
+async def main():
+    logging.info(f"{'-' * 80}\nLT PROC_RAFFLE started!\n{'-' * 80}")
+    await objects.connect()
+    await mq_server.start_listen()
+
+    processor = RaffleProcessor()
+    await asyncio.gather(
+        processor.receive(),
+        processor.work()
+    )
 
 
 loop = asyncio.get_event_loop()

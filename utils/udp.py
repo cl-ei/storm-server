@@ -1,23 +1,19 @@
-import sys
 import pickle
 import socket
 import asyncio
+from db.tables import DMKSource
 
 
 class UdpServer:
-    def __init__(self, *args, **kwargs):
-        """
-        :param local_addr=('127.0.0.1', 9999)
-        :param args:
-        :param kwargs:
-        """
-        self.server_protocol_create_params = (args, kwargs)
+    def __init__(self, host: str = "127.0.0.1", port: int = 40000):
+        self.host = host
+        self.port = port
+
         self.transport = None
         self.protocol = None
-
         self._data_receive_q = asyncio.Queue()
 
-    async def start_server(self):
+    async def start_listen(self):
         if self.transport is not None:
             return
 
@@ -33,101 +29,63 @@ class UdpServer:
                 self.data_receive_q.put_nowait((data, addr))
 
         event_loop = asyncio.get_event_loop()
-        args, kw = self.server_protocol_create_params
         self.transport, self.protocol = await event_loop.create_datagram_endpoint(
             lambda: ServerProtocol(self._data_receive_q),
-            *args, **kw
+            local_addr=(self.host, self.port)
         )
 
-    async def sendto(self, data, addr):
-        self.transport.sendto(data, addr)
+    def qzise(self) -> int:
+        return self._data_receive_q.qsize()
 
-    def received_data_nowait(self):
+    def get_nowait(self) -> DMKSource:
         return self._data_receive_q.get_nowait()
 
-    async def received_data(self):
+    async def get(self) -> DMKSource:
         return await self._data_receive_q.get()
 
 
 class UdpClient:
-    def __init__(self, *args, **kwargs):
-        """
+    def __init__(self, host: str = "127.0.0.1", port: int = 40000):
+        self.host = host
+        self.port = port
 
-        :param remote_addr=('127.0.0.1', 9999)
-        :param args:
-        :param kwargs:
-        """
-        self.data_receive_q = asyncio.Queue(maxsize=1000)
         self.transport = None
         self.protocol = None
-        self.transport_create_params = (args, kwargs)
+        self.sync_udp_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    async def sendto(self, data):
+    async def _create_transport(self):
+        class MyProtocol(asyncio.Protocol):
+            def datagram_received(self, d, addr):
+                pass
+
+            def error_received(self, exc):
+                pass
+
+        event_loop = asyncio.get_event_loop()
+        self.transport, self.protocol = await event_loop.create_datagram_endpoint(
+            lambda: MyProtocol(),
+            remote_addr=(self.host, self.port)
+        )
+
+    async def _sendto(self, data):
         if self.transport is None:
-            class MyProtocol(asyncio.Protocol):
-                def __init__(self, q: asyncio.Queue):
-                    self.data_receive_q = q
-
-                def datagram_received(self, d, addr):
-                    try:
-                        self.data_receive_q.put_nowait((d, addr))
-                    except asyncio.queues.QueueFull:
-                        sys.stderr.write(f"QueueFull when datagram_received! addr: {addr}, data: {data}")
-                        sys.exit(-1)
-
-                def error_received(self, exc):
-                    pass
-
-            event_loop = asyncio.get_event_loop()
-            args, kwargs = self.transport_create_params
-            self.transport, self.protocol = await event_loop.create_datagram_endpoint(
-                lambda: MyProtocol(self.data_receive_q),
-                *args, **kwargs
-            )
+            await self._create_transport()
 
         if isinstance(data, str):
             data = data.encode()
         return self.transport.sendto(data)
 
-
-class UDPSourceToRaffleMQ:
-    def __init__(self, host="127.0.0.1", port=40001):
-        self.host = host
-        self.port = port
-
-        self.udp_server = None
-        self.udp_client = None
-        self.sync_udp_client = None
-
-    def put_nowait(self, message):
+    def put_nowait(self, message: DMKSource):
         py_obj_bytes = pickle.dumps(message)
-        if self.sync_udp_client is None:
-            self.sync_udp_client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        return self.sync_udp_client.sendto(py_obj_bytes, (self.host, self.port))
+        return self.sync_udp_client.sendto(
+            data=py_obj_bytes,
+            address=(self.host, self.port)
+        )
 
-    async def put(self, message):
+    async def put(self, message: DMKSource):
         py_obj_bytes = pickle.dumps(message)
-        if self.udp_client is None:
-            self.udp_client = UdpClient(remote_addr=(self.host, self.port))
-        await self.udp_client.sendto(py_obj_bytes)
-
-    async def start_listen(self):
-        if self.udp_server is None:
-            self.udp_server = UdpServer(local_addr=(self.host, self.port))
-        await self.udp_server.start_server()
-
-    def get_nowait(self):
-        if self.udp_server is None:
-            raise Exception("Serever must listen first!")
-
-        data, addr = self.udp_server.received_data_nowait()
-        return pickle.loads(data)
-
-    async def get(self):
-        if self.udp_server is None:
-            await self.start_listen()
-        data, addr = await self.udp_server.received_data()
-        return pickle.loads(data)
+        await self._sendto(py_obj_bytes)
 
 
-mq_source_to_raffle = UDPSourceToRaffleMQ()
+mq_client = UdpClient()
+mq_server = UdpServer()
