@@ -2,6 +2,7 @@ import time
 from db import RWSchema
 from pydantic import Field
 from typing import Optional
+from config.log4 import lt_server_logger as logging
 
 
 class DMKSource(RWSchema):
@@ -24,8 +25,15 @@ class RaffleBroadCast(RWSchema):
     time_wait: Optional[int]  # info["time_wait"]
     max_time:  Optional[int]  # info["max_time"]
 
+    def __str__(self):
+        return f"<RfBrCst {self.raffle_type}-{self.real_room_id}.{self.raffle_id}>"
+
+    def __repr__(self):
+        return self.__str__()
+
     async def save(self, redis):
-        await redis.zset_zadd(
+        result = await redis.zset_zadd(
             key=self.__key__,
             member_to_score={self: time.time()}
         )
+        logging.info(f"RaffleBroadCast saved! {self} -> {result}")
