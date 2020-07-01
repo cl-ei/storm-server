@@ -191,15 +191,10 @@ class Executor:
             if not await redis_cache.set_if_not_exists(key, "de-duplication"):
                 continue
 
-            privilege_type = info["privilege_type"]
-            if privilege_type == 3:
-                gift_name = "舰长"
-            elif privilege_type == 2:
-                gift_name = "提督"
-            elif privilege_type == 1:
-                gift_name = "总督"
-            else:
-                gift_name = f"guard_{privilege_type}"
+            privilege = info["privilege_type"]
+            gift_name = {1: "舰长", 2: "提督", 3: "总督"}.get(privilege, f"guard_{privilege}")
+            created_time = datetime.datetime.fromtimestamp(self._start_time)
+            expire_time = created_time + datetime.timedelta(seconds=info["time"])
 
             bc = RaffleBroadCast(
                 raffle_type="guard",
@@ -207,11 +202,11 @@ class Executor:
                 real_room_id=room_id,
                 raffle_id=raffle_id,
                 gift_name=gift_name,
+                created_time=created_time,
+                expire_time=expire_time,
             )
             await bc.save(redis_cache)
 
-            created_time = datetime.datetime.fromtimestamp(self._start_time)
-            expire_time = created_time + datetime.timedelta(seconds=info["time"])
             sender = info["sender"]
             create_param = {
                 "gift_id": raffle_id,
@@ -242,12 +237,17 @@ class Executor:
 
             gift_type = info["type"]
             gift_name = info.get("thank_text", "").split("赠送的", 1)[-1]
+            created_time = datetime.datetime.fromtimestamp(self._start_time)
+            expire_time = created_time + datetime.timedelta(seconds=info["time"])
+
             bc = RaffleBroadCast(
                 raffle_type="tv",
                 ts=int(time.time()),
                 real_room_id=room_id,
                 raffle_id=raffle_id,
                 gift_name=gift_name,
+                created_time=created_time,
+                expire_time=expire_time,
                 gift_type=gift_type,
                 time_wait=info["time_wait"],
                 max_time=info["max_time"],
@@ -256,7 +256,6 @@ class Executor:
 
             sender_name = info["from_user"]["uname"]
             sender_face = info["from_user"]["face"]
-            created_time = datetime.datetime.fromtimestamp(self._start_time)
             logging.info(
                 f"\tLottery found: room_id: {room_id} $ {raffle_id} "
                 f"({gift_name}) <- {sender_name}"
@@ -271,7 +270,7 @@ class Executor:
                 "sender_name": sender_name,
                 "sender_face": sender_face,
                 "created_time": created_time,
-                "expire_time": created_time + datetime.timedelta(seconds=info["time"])
+                "expire_time": expire_time
             }
             await RedisRaffle.add(raffle_id=raffle_id, value=create_param, _pre=True)
             await Raffle.record_raffle_before_result(**create_param)

@@ -1,4 +1,5 @@
 import time
+import datetime
 from db import RWSchema
 from pydantic import Field
 from typing import Optional
@@ -21,6 +22,8 @@ class RaffleBroadCast(RWSchema):
     real_room_id: int      # room_id
     raffle_id: int         # raffle_id
     gift_name: str         # gift_name
+    created_time: datetime.datetime
+    expire_time: datetime.datetime
     gift_type: Optional[str]  # gift_type
     time_wait: Optional[int]  # info["time_wait"]
     max_time:  Optional[int]  # info["max_time"]
