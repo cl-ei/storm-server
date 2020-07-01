@@ -30,7 +30,7 @@ async def proc_danmaku(area_id, room_id, raw_msg) -> bool:
 
         elif cmd == "NOTICE_MSG":
             msg_type = danmaku.get("msg_type")
-            if msg_type not in (2, 8):
+            if msg_type in (2, 8):
                 real_room_id = danmaku['real_roomid']
                 await mq_client.put(DMKSource(
                     prize_type="T",
