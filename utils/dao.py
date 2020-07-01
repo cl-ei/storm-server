@@ -6,7 +6,7 @@ import asyncio
 import aioredis
 import configparser
 from config import REDIS_CONFIG
-from typing import Dict, Any, Union, List, Iterable, Sequence
+from typing import Dict, Any, Union, List, Iterable, Tuple
 
 PKL_PROTOCOL = pickle.DEFAULT_PROTOCOL
 
@@ -179,7 +179,7 @@ class RedisCache(object):
     async def incr(self, key):
         return await self.execute("INCR", key)
 
-    async def zset_zadd(self, key: str, member_pairs: Iterable[Sequence[Any, float]], _un_pickle=False):
+    async def zset_zadd(self, key: str, member_pairs: Iterable[Tuple[Any, float]], _un_pickle=False):
         """
         向有序集合添加一个或多个成员，或者更新已存在成员的分数
 
@@ -205,7 +205,7 @@ class RedisCache(object):
             offset: int = 0,
             limit: int = 10000,
             _un_pickle: bool = False,
-    ) -> Iterable[Sequence[Any, float]]:
+    ) -> Iterable[Tuple[Any, float]]:
         """
         通过分数返回有序集合指定区间内的成员
 
