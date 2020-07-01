@@ -36,6 +36,7 @@ async def proc_danmaku(area_id, room_id, raw_msg) -> bool:
                     prize_type="T",
                     room_id=real_room_id
                 ))
+                logging.info(f"NOTICE_MSG received. room_id: {real_room_id}")
 
         elif cmd == "GUARD_MSG" and danmaku["buy_type"] == 1:
             prize_room_id = danmaku['roomid']
@@ -43,6 +44,7 @@ async def proc_danmaku(area_id, room_id, raw_msg) -> bool:
                 prize_type="Z",
                 room_id=prize_room_id
             ))
+            logging.info(f"GUARD_MSG received. room_id: {prize_room_id}")
     return False
 
 
